@@ -1,13 +1,13 @@
 @extends('layouts.main')
 
-@section('title', 'Dashboard Helpdesk')
+@section('title', 'Dashboard Maintenance Order')
 
 @section('toolbar')
 <div class="app-header-wrapper d-flex align-items-center justify-content-around justify-content-lg-between flex-wrap gap-6 gap-lg-0 mb-6 mb-lg-0" data-kt-swapper="true" data-kt-swapper-mode="{default: 'prepend', lg: 'prepend'}" data-kt-swapper-parent="{default: '#kt_app_content_container', lg: '#kt_app_header_wrapper'}">
     <!--begin::Page title-->
     <div class="d-flex flex-column justify-content-center">
         <!--begin::Title-->
-        <h1 class="text-gray-900 fw-bold fs-2x mb-2">Dashboard Helpdesk</h1>
+        <h1 class="text-gray-900 fw-bold fs-2x mb-2">Dashboard Maintenance Order</h1>
         <!--end::Title-->
         <!--begin::Breadcrumb-->
         <ul class="breadcrumb breadcrumb-separatorless fw-semibold fs-base">
@@ -20,7 +20,15 @@
             <li class="breadcrumb-item text-muted">/</li>
             <!--end::Item-->
             <!--begin::Item-->
-            <li class="breadcrumb-item text-muted">Dashboard Helpdesk</li>
+            <li class="breadcrumb-item text-muted">
+                <a href="{{ url('helpdesk/dashboard') }}" class="text-muted text-hover-danger">Dashboard Helpdesk</a>
+            </li>
+            <!--end::Item-->
+            <!--begin::Item-->
+            <li class="breadcrumb-item text-muted">/</li>
+            <!--end::Item-->
+            <!--begin::Item-->
+            <li class="breadcrumb-item text-muted">Maintenance Order</li>
             <!--end::Item-->
         </ul>
         <!--end::Breadcrumb-->
@@ -81,7 +89,7 @@
                 <!--begin::Info-->
                 <div class="card-title flex-column flex-grow-1">
                     <span class="card-label fw-bold fs-1 text-white">Selamat Pagi, {{Session::get('user')->name}}!</span>
-                    <span class="text-white opacity-50 fw-semibold fs-4">Cek list trouble ticket disini:</span>
+                    <span class="text-white opacity-50 fw-semibold fs-4">Cek list maintenance order disini:</span>
                 </div>
                 <!--end::Info-->
             </div>
@@ -105,6 +113,12 @@
     #myGrid {
         height: 600px;
         width: 100%;
+    }
+    .ag-root {
+        user-select: text;
+        -webkit-user-select: text;
+        -moz-user-select: text;
+        -ms-user-select: text;
     }
 </style>
 @stop
@@ -159,16 +173,75 @@
             }
         },
         { field: 'status', headerName: 'Status', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tt_ant_id', headerName: 'TT ANT ID', sortable: true, filter: true, minWidth: 200 },
+        { field: 'mo_reference', headerName: 'MO Reference', sortable: true, filter: true, minWidth: 200 },
+        { field: 'batch', headerName: 'Batch', sortable: true, filter: true, minWidth: 200 },
+        { field: 'year', headerName: 'Year', sortable: true, filter: true, minWidth: 200 },
+        { field: 'funcloc', headerName: 'Funcloc', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tenant_id', headerName: 'Tenant ID', sortable: true, filter: true, minWidth: 200 },
+        { field: 'site_id', headerName: 'Site ID', sortable: true, filter: true, minWidth: 200 },
+        { field: 'site_id_tenant', headerName: 'Site ID Tenant', sortable: true, filter: true, minWidth: 200 },
+        { field: 'pid', headerName: 'PID', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tower_name', headerName: 'Tower Name', sortable: true, filter: true, minWidth: 200 },
+        { field: 'mo_type', headerName: 'MO Type', sortable: true, filter: true, minWidth: 200 },
+        { field: 'type', headerName: 'Type', sortable: true, filter: true, minWidth: 200 },
         { field: 'mitra_om', headerName: 'Mitra OM', sortable: true, filter: true, minWidth: 200 },
         { field: 'engineer', headerName: 'Engineer', sortable: true, filter: true, minWidth: 200 },
-        { field: 'customer', headerName: 'Customer', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tower_id', headerName: 'Tower ID', sortable: true, filter: true, minWidth: 200 },
-        { field: 'pid', headerName: 'PID', sortable: true, filter: true, minWidth: 200 },
-        { field: 'priority', headerName: 'Priority', sortable: true, filter: true, minWidth: 200 },
-        { field: 'district_city', headerName: 'District City', sortable: true, filter: true, minWidth: 200 },
-        { field: 'region', headerName: 'Region', sortable: true, filter: true, minWidth: 200 },
-        { field: 'ts_description', headerName: 'TS Description', sortable: true, filter: true, minWidth: 200 },
+        { field: 'visitor_permit', headerName: 'Visitor Permit', sortable: true, filter: true, minWidth: 200 },
+        { field: 'province', headerName: 'Province', sortable: true, filter: true, minWidth: 200 },
+        { field: 'district_or_city', headerName: 'District or City', sortable: true, filter: true, minWidth: 200 },
+        { field: 'address', headerName: 'Address', sortable: true, filter: true, minWidth: 200 },
+        { field: 'area', headerName: 'Area', sortable: true, filter: true, minWidth: 200 },
+        { field: 'regional', headerName: 'Regional', sortable: true, filter: true, minWidth: 200 },
+        { field: 'maintenance_zone', headerName: 'Maintenance Zone', sortable: true, filter: true, minWidth: 200 },
+        { field: 'lat_long', headerName: 'Lat Long', sortable: true, filter: true, minWidth: 200 },
+        { field: 'kode_tipe_site', headerName: 'Kode Tipe Site', sortable: true, filter: true, minWidth: 200 },
+        { field: 'portofolio', headerName: 'Portofolio', sortable: true, filter: true, minWidth: 200 },
+        { field: 'sow', headerName: 'SOW', sortable: true, filter: true, minWidth: 200 },
+        {
+            field: 'start_date',
+            headerName: 'Start Date',
+            filter: 'agDateColumnFilter',
+            minWidth: 250,
+            sortable: true,
+            filterParams: {
+                browserDatePicker: true,
+                comparator: function (filterLocalDateAtMidnight, cellValue) {
+                    if (!cellValue) return -1;
+                    const cellDate = new Date(cellValue);
+                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
+                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
+                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
+                    return 0;
+                }
+            },
+            valueFormatter: (params) => {
+                const d = new Date(params.value);
+                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
+            }
+        },
+        { field: 'return_schedule_notes', headerName: 'Return Schedule Notes', sortable: true, filter: true, minWidth: 200 },
+        {
+            field: 'timestamp_end',
+            headerName: 'Timestamp End',
+            filter: 'agDateColumnFilter',
+            minWidth: 250,
+            sortable: true,
+            filterParams: {
+                browserDatePicker: true,
+                comparator: function (filterLocalDateAtMidnight, cellValue) {
+                    if (!cellValue) return -1;
+                    const cellDate = new Date(cellValue);
+                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
+                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
+                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
+                    return 0;
+                }
+            },
+            valueFormatter: (params) => {
+                const d = new Date(params.value);
+                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
+            }
+        },
         {
             field: 'ts_open',
             headerName: 'TS Open',
@@ -192,8 +265,8 @@
             }
         },
         {
-            field: 'ts_need_assign',
-            headerName: 'TS Need Assign',
+            field: 'ts_request_schedule',
+            headerName: 'TS Request Schedule',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -214,8 +287,8 @@
             }
         },
         {
-            field: 'ts_on_progress',
-            headerName: 'TS On Progress',
+            field: 'ts_ready_to_execute',
+            headerName: 'TS Ready to Execute',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -236,8 +309,8 @@
             }
         },
         {
-            field: 'ts_pickup',
-            headerName: 'TS Pickup',
+            field: 'timestamp_start',
+            headerName: 'Timestamp Start',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -258,8 +331,8 @@
             }
         },
         {
-            field: 'ts_departure',
-            headerName: 'TS Departure',
+            field: 'ts_submitted_vendor',
+            headerName: 'TS Submitted Vendor',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -279,82 +352,16 @@
                 return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
             }
         },
-        {
-            field: 'ts_arrived',
-            headerName: 'TS Arrived',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'ts_resolved',
-            headerName: 'TS Resolved',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'ts_closed',
-            headerName: 'TS Closed',
-            filter: 'agDateColumnFilter',
-            sortable: true,
-            minWidth: 250,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        { field: 'pic', headerName: 'PIC', sortable: true, filter: true, minWidth: 200 },
-        { field: 'detail_issue_type', headerName: 'Detail Issue Type', sortable: true, filter: true, minWidth: 200 },
-        { field: 'issue_type', headerName: 'Issue Type', sortable: true, filter: true, minWidth: 200 },
-        { field: 'reference', headerName: 'Reference', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tower_name', headerName: 'Tower Name', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tower_owner', headerName: 'Tower Owner', sortable: true, filter: true, minWidth: 200 },
-        { field: 'actual_category', headerName: 'Actual Category', sortable: true, filter: true, minWidth: 200 },
-        { field: 'closed_by', headerName: 'Closed By', sortable: true, filter: true, minWidth: 200 },
-        { field: 'sla_status', headerName: 'SLA Status', sortable: true, filter: true, minWidth: 200 },
-        { field: 'mttr_hours', headerName: 'MTTR Hours', sortable: true, filter: true, minWidth: 200 },
+        { field: 'order_number', headerName: 'Order Number', sortable: true, filter: true, minWidth: 200 },
+        { field: 'mp_number', headerName: 'MP Number', sortable: true, filter: true, minWidth: 200 },
+        { field: 'mi_number', headerName: 'MI Number', sortable: true, filter: true, minWidth: 200 },
+        { field: 'pdf_link', headerName: 'PDF Link', sortable: true, filter: true, minWidth: 200 },
+        { field: 'pr_reference', headerName: 'PR Reference', sortable: true, filter: true, minWidth: 200 },
+        { field: 'po_reference', headerName: 'PO Reference', sortable: true, filter: true, minWidth: 200 },
+        { field: 'bapp_number', headerName: 'BAPP Number', sortable: true, filter: true, minWidth: 200 },
+        { field: 'bast_number', headerName: 'BAST Number', sortable: true, filter: true, minWidth: 200 },
+        { field: 'gr_status', headerName: 'GR Status', sortable: true, filter: true, minWidth: 200 },
+        { field: 'customer', headerName: 'Customer', sortable: true, filter: true, minWidth: 200 },
     ];
 
     const gridOptions = {
@@ -377,7 +384,7 @@
             sortModel: sortModel
           });
 
-          fetch(`{{ url('/api/helpdesk/get_list_trouble_ticket') }}?${query}`, {
+          fetch(`{{ url('/api/helpdesk/get_list_maintenance_order') }}?${query}`, {
             headers: { 'Content-Type': 'application/json' }
           })
           .then(res => res.json())
@@ -415,7 +422,7 @@
 
         const form = document.createElement('form');
         form.method = 'POST';
-        form.action = "{{ url('/api/helpdesk/export_trouble_ticket') }}";
+        form.action = "{{ url('/api/helpdesk/export_maintenance_order') }}";
         form.target = '_blank';
 
         const csrf = document.createElement('input');
