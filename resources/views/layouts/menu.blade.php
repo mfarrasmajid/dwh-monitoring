@@ -178,7 +178,31 @@
                             <span class="menu-bullet">
                                 <span class="bullet bullet-dot"></span>
                             </span>
-                            <span class="menu-title">Dashboard Helpdesk</span>
+                            <span class="menu-title">Dashboard Portal</span>
+                        </a>
+                        <!--end:Menu link-->
+                    </div>
+                    <!--end:Menu item-->
+                    <!--begin:Menu item-->
+                    <div class="menu-item">
+                        <!--begin:Menu link-->
+                        <a class="menu-link @if (($path_current[0] == 'helpdesk') && ($path_current[1] == 'trouble_ticket')) active @endif" href="{{ url('/helpdesk/trouble_ticket') }}">
+                            <span class="menu-bullet">
+                                <span class="bullet bullet-dot"></span>
+                            </span>
+                            <span class="menu-title">Trouble Ticket</span>
+                        </a>
+                        <!--end:Menu link-->
+                    </div>
+                    <!--end:Menu item-->
+                    <!--begin:Menu item-->
+                    <div class="menu-item">
+                        <!--begin:Menu link-->
+                        <a class="menu-link @if (($path_current[0] == 'helpdesk') && ($path_current[1] == 'maintenance_order')) active @endif" href="{{ url('/helpdesk/maintenance_order') }}">
+                            <span class="menu-bullet">
+                                <span class="bullet bullet-dot"></span>
+                            </span>
+                            <span class="menu-title">Maintenance Order</span>
                         </a>
                         <!--end:Menu link-->
                     </div>
