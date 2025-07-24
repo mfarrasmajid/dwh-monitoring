@@ -49,12 +49,18 @@ class ApiController extends Controller
                             $q->$clause($field, 'like', "$value%");
                         } elseif ($type === 'endsWith') {
                             $q->$clause($field, 'like', "%$value");
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
 
                     if ($filterType === 'date') {
                         if ($type === 'equals') {
                             $q->$clause(\DB::raw("DATE($field)"), '=', substr($value, 0, 10));
+                        } elseif ($type === 'notEqual') {
+                            $q->$clause(\DB::raw("DATE($field)"), '!=', substr($value, 0, 10));
                         } elseif ($type === 'inRange') {
                             $start = substr($condition['dateFrom'], 0, 10);
                             $end = substr($condition['dateTo'], 0, 10);
@@ -66,6 +72,10 @@ class ApiController extends Controller
                             $q->$clause(\DB::raw("DATE($field)"), '<', substr($value, 0, 10));
                         } elseif ($type === 'greaterThan') {
                             $q->$clause(\DB::raw("DATE($field)"), '>', substr($value, 0, 10));
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
                 }
@@ -76,6 +86,23 @@ class ApiController extends Controller
             $query->orderBy($sort['colId'], $sort['sort']);
         }
 
+        // if (!str_contains(session()->get('user')->privilege, 'ADMIN')){
+        //     $explode = explode(',', session()->get('user')->mitra_om);
+        //     if (count($explode) == 0){
+        //         $query->where('mitra_om', NULL);
+        //     } else {
+        //         $query->where(function ($q) use ($explode){
+        //             foreach($explode as $key => $e){
+        //                 if ($key == 0){
+        //                     $q->where('mitra_om', $e);
+        //                 } else {
+        //                     $q->orWhere('mitra_om', $e);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // }
+
         $start = intval($request->startRow ?? 0);
         $end = intval($request->endRow ?? 50);
         $limit = $end - $start;
@@ -84,7 +111,25 @@ class ApiController extends Controller
         $totalFiltered = $filteredQuery->count();
 
         // Get full count (unfiltered)
-        $totalAll = DB::connection('pgsql2')->table('mart_om_troubleticketcomp')->count();
+        $totalAll = DB::connection('pgsql2')->table('mart_om_troubleticketcomp');
+
+        // if (!str_contains(session()->get('user')->privilege, 'ADMIN')){
+        //     $explode = explode(',', session()->get('user')->mitra_om);
+        //     if (count($explode) == 0){
+        //         $totalAll->where('mitra_om', NULL);
+        //     } else {
+        //         $totalAll->where(function ($q) use ($explode){
+        //             foreach($explode as $key => $e){
+        //                 if ($key == 0){
+        //                     $q->where('mitra_om', $e);
+        //                 } else {
+        //                     $q->orWhere('mitra_om', $e);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // }
+        $totalAll = $totalAll->count();
 
         $total = $query->count();
         $rows = $query->skip($start)->take($limit)->get();
@@ -137,12 +182,18 @@ class ApiController extends Controller
                             $q->$clause($field, 'like', "$value%");
                         } elseif ($type === 'endsWith') {
                             $q->$clause($field, 'like', "%$value");
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
 
                     if ($filterType === 'date') {
                         if ($type === 'equals') {
                             $q->$clause(\DB::raw("DATE($field)"), '=', substr($value, 0, 10));
+                        } elseif ($type === 'notEqual') {
+                            $q->$clause(\DB::raw("DATE($field)"), '!=', substr($value, 0, 10));
                         } elseif ($type === 'inRange') {
                             $start = substr($condition['dateFrom'], 0, 10);
                             $end = substr($condition['dateTo'], 0, 10);
@@ -154,6 +205,10 @@ class ApiController extends Controller
                             $q->$clause(\DB::raw("DATE($field)"), '<', substr($value, 0, 10));
                         } elseif ($type === 'greaterThan') {
                             $q->$clause(\DB::raw("DATE($field)"), '>', substr($value, 0, 10));
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
                 }
@@ -164,45 +219,98 @@ class ApiController extends Controller
             $query->orderBy($sort['colId'], $sort['sort']);
         }
 
-        $headers = ["name",
-            "creation",
-            "modified",
-            "modified_by",
-            "owner",
-            "docstatus",
-            "parent",
-            "parentfield",
-            "parenttype",
-            "idx",
+        // if (!str_contains(session()->get('user')->privilege, 'ADMIN')){
+        //     $explode = explode(',', session()->get('user')->mitra_om);
+        //     if (count($explode) == 0){
+        //         $query->where('mitra_om', NULL);
+        //     } else {
+        //         $query->where(function ($q) use ($explode){
+        //             foreach($explode as $key => $e){
+        //                 if ($key == 0){
+        //                     $q->where('mitra_om', $e);
+        //                 } else {
+        //                     $q->orWhere('mitra_om', $e);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // }
+
+        $headers1 = [
+            "Status",
+            "Name",
+            "Docstatus",
+            "Aging",
+            "Severity",
+            "PID",
+            "Tower Owner",
+            "Portofolio",
+            "Region",
+            "Category",
+            "TT Description",
+            "Area",
+            "Address",
+            "Vendor Mitra OM",
+            "Timestamp Closed",
+            "Customer",
+            "Tower Name",
+            "PIC",
+            "Timestamp Open",
+            "TT ID Tenant",
+            "Tenant ID",
+            "SiteID from Tenant",
+            "Tanggal Request ANT",
+            "Timestamp Resolved",
+            "Service Level Agreement",
+            "Service Level Agreement Status",
+            "Actual Category",
+            "TT From",
+            "TT ID AmpuhC",
+            "Class of Service",
+            "Maintenance Zone",
+            "Fullname Engineer",
+            "SLA Status",
+            "MTTR",
+            "MTTR Hours"
+        ];
+
+        $headers = [
             "status",
-            "tt_ant_id",
-            "mitra_om",
-            "engineer",
-            "customer",
-            "tower_id",
-            "pid",
+            "name",
+            "docstatus",
+            "aging",
             "priority",
-            "disctrict_city",
-            "region",
-            "tt_description",
-            "ts_open",
-            "ts_need_assign",
-            "ts_on_progress",
-            "ts_pickup",
-            "ts_departure",
-            "ts_arrived",
-            "ts_resolved",
-            "ts_closed",
-            "pic",
-            "detail_issue_type",
-            "issue_type",
-            "reference",
-            "tower_name",
+            "pid",
             "tower_owner",
+            "portofolio",
+            "region",
+            "issue_type",
+            "tt_description",
+            "area",
+            "address",
+            "mitra_om",
+            "ts_closed",
+            "customer",
+            "tower_name",
+            "pic",
+            "ts_open",
+            "tt_ant_id",
+            "tenant_id",
+            "sid_tenant",
+            "tanggal_request_ant",
+            "ts_resolved",
+            "service_level_agreement",
+            "agreement_status",
             "actual_category",
-            "closed_by",
+            "reference",
+            "tt_id_ampuhc",
+            "class_of_service",
+            "maintenance_zone",
+            "engineer",
             "sla_status",
-            "mttr_hours"];
+            "mttr",
+            "mttr_hours"
+        ];
 
         $users = $query->get($headers);
 
@@ -211,7 +319,7 @@ class ApiController extends Controller
 
         
         
-        $sheet->fromArray(array_map('ucfirst', $headers), NULL, 'A1');
+        $sheet->fromArray( $headers1, NULL, 'A1');
 
         $sheet->fromArray(
             collect($users)->map(function ($row) use ($headers) {
@@ -221,9 +329,16 @@ class ApiController extends Controller
             'A2'
         );
 
+        $latest_modified = DB::connection('pgsql2')->table('mart_om_troubleticketcomp')->select('modified')->orderBy('modified', 'desc')->limit(1)->get();
+        if (count($latest_modified) > 0){
+            $latest_modified = $latest_modified->first()->modified;
+        } else {
+            $latest_modified = 'no_data';
+        }
+
         // Response
         $writer = new Xlsx($spreadsheet);
-        $fileName = 'trouble_ticket.xlsx';
+        $fileName = 'trouble_ticket_lastupdate_'.$latest_modified.'.xlsx';
         $temp_file = tempnam(sys_get_temp_dir(), $fileName);
         $writer->save($temp_file);
 
@@ -270,13 +385,19 @@ class ApiController extends Controller
                             $q->$clause($field, 'like', "$value%");
                         } elseif ($type === 'endsWith') {
                             $q->$clause($field, 'like', "%$value");
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
 
                     if ($filterType === 'date') {
                         if ($type === 'equals') {
                             $q->$clause(\DB::raw("DATE($field)"), '=', substr($value, 0, 10));
-                        } elseif ($type === 'inRange') {
+                        } elseif ($type === 'notEqual') {
+                            $q->$clause(\DB::raw("DATE($field)"), '!=', substr($value, 0, 10));
+                        }  elseif ($type === 'inRange') {
                             $start = substr($condition['dateFrom'], 0, 10);
                             $end = substr($condition['dateTo'], 0, 10);
                             $q->$clause(function($dateQ) use ($field, $start, $end) {
@@ -287,6 +408,10 @@ class ApiController extends Controller
                             $q->$clause(\DB::raw("DATE($field)"), '<', substr($value, 0, 10));
                         } elseif ($type === 'greaterThan') {
                             $q->$clause(\DB::raw("DATE($field)"), '>', substr($value, 0, 10));
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
                 }
@@ -297,6 +422,23 @@ class ApiController extends Controller
             $query->orderBy($sort['colId'], $sort['sort']);
         }
 
+        // if (!str_contains(session()->get('user')->privilege, 'ADMIN')){
+        //     $explode = explode(',', session()->get('user')->mitra_om);
+        //     if (count($explode) == 0){
+        //         $query->where('mitra_om', NULL);
+        //     } else {
+        //         $query->where(function ($q) use ($explode){
+        //             foreach($explode as $key => $e){
+        //                 if ($key == 0){
+        //                     $q->where('mitra_om', $e);
+        //                 } else {
+        //                     $q->orWhere('mitra_om', $e);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // }
+
         $start = intval($request->startRow ?? 0);
         $end = intval($request->endRow ?? 50);
         $limit = $end - $start;
@@ -305,7 +447,25 @@ class ApiController extends Controller
         $totalFiltered = $filteredQuery->count();
 
         // Get full count (unfiltered)
-        $totalAll = DB::connection('pgsql2')->table('mart_om_maintenanceorder')->count();
+        $totalAll = DB::connection('pgsql2')->table('mart_om_maintenanceorder');
+
+        // if (!str_contains(session()->get('user')->privilege, 'ADMIN')){
+        //     $explode = explode(',', session()->get('user')->mitra_om);
+        //     if (count($explode) == 0){
+        //         $totalAll->where('mitra_om', NULL);
+        //     } else {
+        //         $totalAll->where(function ($q) use ($explode){
+        //             foreach($explode as $key => $e){
+        //                 if ($key == 0){
+        //                     $q->where('mitra_om', $e);
+        //                 } else {
+        //                     $q->orWhere('mitra_om', $e);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // }
+        $totalAll = $totalAll->count();
 
         $total = $query->count();
         $rows = $query->skip($start)->take($limit)->get();
@@ -358,12 +518,18 @@ class ApiController extends Controller
                             $q->$clause($field, 'like', "$value%");
                         } elseif ($type === 'endsWith') {
                             $q->$clause($field, 'like', "%$value");
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
 
                     if ($filterType === 'date') {
                         if ($type === 'equals') {
                             $q->$clause(\DB::raw("DATE($field)"), '=', substr($value, 0, 10));
+                        } elseif ($type === 'notEqual') {
+                            $q->$clause(\DB::raw("DATE($field)"), '!=', substr($value, 0, 10));
                         } elseif ($type === 'inRange') {
                             $start = substr($condition['dateFrom'], 0, 10);
                             $end = substr($condition['dateTo'], 0, 10);
@@ -375,6 +541,10 @@ class ApiController extends Controller
                             $q->$clause(\DB::raw("DATE($field)"), '<', substr($value, 0, 10));
                         } elseif ($type === 'greaterThan') {
                             $q->$clause(\DB::raw("DATE($field)"), '>', substr($value, 0, 10));
+                        } elseif ($type === 'blank') {
+                            $q->$clause($field, '=', NULL);
+                        } elseif ($type === 'notBlank'){
+                            $q->$clause($field, '!=', NULL);
                         }
                     }
                 }
@@ -385,60 +555,86 @@ class ApiController extends Controller
             $query->orderBy($sort['colId'], $sort['sort']);
         }
 
-        $headers = [
-            "name",
-            "creation",
-            "modified",
-            "modified_by",
-            "owner",
-            "docstatus",
-            "parent",
-            "parentfield",
-            "parenttype",
-            "idx",
-            "status",
-            "mo_reference",
-            "batch",
-            "year",
-            "funcloc",
-            "tenant_id",
-            "site_id",
-            "site_id_tenant",
-            "pid",
-            "tower_name",
-            "mo_type",
-            "type",
-            "mitra_om",
-            "engineer",
-            "visitor_permit",
-            "province",
-            "district_or_city",
-            "address",
-            "area",
-            "regional",
-            "maintenance_zone",
-            "lat_long",
-            "kode_tipe_site",
-            "portofolio",
-            "sow",
-            "start_date",
-            "return_schedule_notes",
-            "timestamp_end",
-            "ts_open",
-            "ts_request_schedule",
-            "ts_ready_to_execute",
-            "timestamp_start",
-            "ts_submitted_vendor",
-            "order_number",
-            "mp_number",
-            "mi_number",
+        // if (!str_contains(session()->get('user')->privilege, 'ADMIN')){
+        //     $explode = explode(',', session()->get('user')->mitra_om);
+        //     if (count($explode) == 0){
+        //         $query->where('mitra_om', NULL);
+        //     } else {
+        //         $query->where(function ($q) use ($explode){
+        //             foreach($explode as $key => $e){
+        //                 if ($key == 0){
+        //                     $q->where('mitra_om', $e);
+        //                 } else {
+        //                     $q->orWhere('mitra_om', $e);
+        //                 }
+        //             }
+        //         });
+        //     }
+        // }
+
+        $headers1 = [
+            "Status",
+            "Name",
+            "Docstatus",
+            "Expired Visit",
+            "Site ID",
+            "Return Notes",
+            "Schedule Visit",
+            "Timestamp Submitted by Vendor",
+            "Vendor Mitra OM",
+            "Tower Name",
+            "Scope of Work",
+            "Fullname Engineer",
+            "Timestamp Ready to Execute",
+            "Timestamp End",
+            "Timestamp Approved by Vendor",
+            "Timestamp Execution",
+            "Timestamp Open",
+            "Timestamp Need Assign",
+            "Timestamp Approved by SM/KSM",
+            "Timestamp Expired",
+            "MO ID",
             "pdf_link",
-            "pr_reference",
-            "po_reference",
-            "bapp_number",
-            "bast_number",
-            "gr_status",
-            "customer"];
+            "Regional",
+            "PID",
+            "TenantID",
+            "Customer",
+            "Engineer",
+            "District or City",
+            "Area",
+            "Batch",];
+
+        $headers = [
+            "status",
+            "name",
+            "docstatus",
+            "end_date",
+            "site_id",
+            "return_notes",
+            "start_date",
+            "ts_submitted_vendor",
+            "mitra_om",
+            "tower_name",
+            "sow",
+            "fullname_engineer",
+            "ts_ready_to_execute",
+            "timestamp_end",
+            "ts_approved_vendor",
+            "timestamp_start",
+            "ts_open",
+            "ts_need_assign",
+            "ts_approved_sm",
+            "ts_expired",
+            "mo_reference",
+            "pdf_link",
+            "regional",
+            "pid",
+            "tenant_id",
+            "customer",
+            "engineer",
+            "district_or_city",
+            "area",
+            "batch",];
 
         $users = $query->get($headers);
 
@@ -447,7 +643,7 @@ class ApiController extends Controller
 
         
         
-        $sheet->fromArray(array_map('ucfirst', $headers), NULL, 'A1');
+        $sheet->fromArray( $headers1, NULL, 'A1');
 
         $sheet->fromArray(
             collect($users)->map(function ($row) use ($headers) {
@@ -457,12 +653,20 @@ class ApiController extends Controller
             'A2'
         );
 
+        $latest_modified = DB::connection('pgsql2')->table('mart_om_maintenanceorder')->select('modified')->orderBy('modified', 'desc')->limit(1)->get();
+        if (count($latest_modified) > 0){
+            $latest_modified = $latest_modified->first()->modified;
+        } else {
+            $latest_modified = 'no_data';
+        }
+
         // Response
         $writer = new Xlsx($spreadsheet);
-        $fileName = 'maintenance_order.xlsx';
+        $fileName = 'maintenance_order_lastupdate_'.$latest_modified.'.xlsx';
         $temp_file = tempnam(sys_get_temp_dir(), $fileName);
         $writer->save($temp_file);
 
         return response()->download($temp_file, $fileName)->deleteFileAfterSend(true);
     }
+
 }

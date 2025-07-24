@@ -77,7 +77,7 @@
         </div>    
         <div class="row g-5 mt-5 d-lg-flex d-none">
             @if ((session()->get('user')->privilege == 'ADMIN') || (session()->get('user')->privilege == 'USER'))
-            <div class="col-lg-2">
+            <div class="col-lg-4">
                 <div class="card card-flush h-100">
                     <div class="card-body px-15 pb-15 pt-10">
                         <div class="fs-2x fw-bolder text-dark text-hover-danger mb-5">Datawarehouse</div>
@@ -88,7 +88,7 @@
             </div>
             @endif
             @if (session()->get('user')->privilege == 'ADMIN')
-            <div class="col-lg-2">
+            <div class="col-lg-4">
                 <div class="card card-flush h-100">
                     <div class="card-body px-15 pb-15 pt-10">
                         <div class="fs-2x fw-bolder text-dark text-hover-danger mb-5">Admin</div>
@@ -98,7 +98,7 @@
                 </div>
             </div>
             @endif
-            <div class="col-lg-2">
+            <div class="col-lg-4">
                 <div class="card card-flush h-100">
                     <div class="card-body px-15 pb-15 pt-10">
                         <div class="fs-2x fw-bolder text-dark text-hover-danger mb-5">Helpdesk</div>

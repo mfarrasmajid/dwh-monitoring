@@ -88,7 +88,7 @@
                 <!--end::Symbol-->
                 <!--begin::Info-->
                 <div class="card-title flex-column flex-grow-1">
-                    <span class="card-label fw-bold fs-1 text-white">Selamat Pagi, {{Session::get('user')->name}}!</span>
+                    <span class="card-label fw-bold fs-1 text-white">Selamat Pagi, {{Session::get('user')->name}}!<br>Data Trouble Ticket terakhir diupdate pada: {{$data['latest_modified']}}</span>
                     <span class="text-white opacity-50 fw-semibold fs-4">Cek list trouble ticket disini:</span>
                 </div>
                 <!--end::Info-->
@@ -97,10 +97,10 @@
             <!--begin::Card body-->
             <div class="card-body d-flex flex-column align-items-start">
                 <button class="btn btn-light-danger btn-sm mb-3" onclick="exportFilteredData()">Export to CSV</button>
+                <p id="rowCount"></p>
                 <!--begin::Wrapper-->
                 <div id="myGrid"></div>
                 <!--end::Wrapper-->
-                <p id="rowCount"></p>
             </div>
             <!--end::Card body-->
         </div>
@@ -127,65 +127,49 @@
 <script src="https://cdn.jsdelivr.net/npm/ag-grid-community/dist/ag-grid-community.min.js"></script>
 <script>
     const columnDefs = [
-        { field: 'name', headerName: 'Name', sortable: true, filter: true, minWidth: 200 },
-        {
-            field: 'creation',
-            headerName: 'Creation',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'modified',
-            headerName: 'Modified',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
         { field: 'status', headerName: 'Status', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tt_ant_id', headerName: 'TT ANT ID', sortable: true, filter: true, minWidth: 200 },
-        { field: 'mitra_om', headerName: 'Mitra OM', sortable: true, filter: true, minWidth: 200 },
-        { field: 'engineer', headerName: 'Engineer', sortable: true, filter: true, minWidth: 200 },
-        { field: 'customer', headerName: 'Customer', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tower_id', headerName: 'Tower ID', sortable: true, filter: true, minWidth: 200 },
+        { field: 'name', headerName: 'Name', sortable: true, filter: true, minWidth: 200 },
+        { field: 'docstatus', headerName: 'Docstatus', sortable: true, filter: true, minWidth: 200 },
+        { field: 'aging', headerName: 'Aging', sortable: true, filter: true, minWidth: 200 },
+        { field: 'priority', headerName: 'Severity', sortable: true, filter: true, minWidth: 200 },
         { field: 'pid', headerName: 'PID', sortable: true, filter: true, minWidth: 200 },
-        { field: 'priority', headerName: 'Priority', sortable: true, filter: true, minWidth: 200 },
-        { field: 'district_city', headerName: 'District City', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tower_owner', headerName: 'Tower Owner', sortable: true, filter: true, minWidth: 200 },
+        { field: 'portofolio', headerName: 'Portofolio', sortable: true, filter: true, minWidth: 200 },
         { field: 'region', headerName: 'Region', sortable: true, filter: true, minWidth: 200 },
-        { field: 'ts_description', headerName: 'TS Description', sortable: true, filter: true, minWidth: 200 },
+        { field: 'issue_type', headerName: 'Category', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tt_description', headerName: 'TT Description', sortable: true, filter: true, minWidth: 200 },
+        { field: 'area', headerName: 'Area', sortable: true, filter: true, minWidth: 200 },
+        { field: 'address', headerName: 'Address', sortable: true, filter: true, minWidth: 200 },
+        { field: 'mitra_om', headerName: 'Vendor Mitra OM', sortable: true, filter: true, minWidth: 200 },
+        {
+            field: 'ts_closed',
+            headerName: 'Timestamp Closed',
+            filter: 'agDateColumnFilter',
+            sortable: true,
+            minWidth: 250,
+            filterParams: {
+                browserDatePicker: true,
+                comparator: function (filterLocalDateAtMidnight, cellValue) {
+                    if (!cellValue) return -1;
+                    const cellDate = new Date(cellValue);
+                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
+                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
+                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
+                    return 0;
+                }
+            },
+            valueFormatter: (params) => {
+                if (!params.value) return '';
+                const d = new Date(params.value);
+                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
+            }
+        },
+        { field: 'customer', headerName: 'Customer', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tower_name', headerName: 'Tower Name', sortable: true, filter: true, minWidth: 200 },
+        { field: 'pic', headerName: 'PIC', sortable: true, filter: true, minWidth: 200 },
         {
             field: 'ts_open',
-            headerName: 'TS Open',
+            headerName: 'Timestamp Open',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -201,13 +185,17 @@
                 }
             },
             valueFormatter: (params) => {
+                if (!params.value) return '';
                 const d = new Date(params.value);
                 return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
             }
         },
+        { field: 'tt_ant_id', headerName: 'TT ID Tenant', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tenant_id', headerName: 'Tenant ID', sortable: true, filter: true, minWidth: 200 },
+        { field: 'sid_tenant', headerName: 'SiteID from Tenant', sortable: true, filter: true, minWidth: 200 },
         {
-            field: 'ts_need_assign',
-            headerName: 'TS Need Assign',
+            field: 'tanggal_request_ant',
+            headerName: 'Tanggal Request ANT',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -223,101 +211,14 @@
                 }
             },
             valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'ts_on_progress',
-            headerName: 'TS On Progress',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'ts_pickup',
-            headerName: 'TS Pickup',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'ts_departure',
-            headerName: 'TS Departure',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        {
-            field: 'ts_arrived',
-            headerName: 'TS Arrived',
-            filter: 'agDateColumnFilter',
-            minWidth: 250,
-            sortable: true,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
+                if (!params.value) return '';
                 const d = new Date(params.value);
                 return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
             }
         },
         {
             field: 'ts_resolved',
-            headerName: 'TS Resolved',
+            headerName: 'Timestamp Resolved',
             filter: 'agDateColumnFilter',
             minWidth: 250,
             sortable: true,
@@ -333,41 +234,21 @@
                 }
             },
             valueFormatter: (params) => {
+                if (!params.value) return '';
                 const d = new Date(params.value);
                 return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
             }
         },
-        {
-            field: 'ts_closed',
-            headerName: 'TS Closed',
-            filter: 'agDateColumnFilter',
-            sortable: true,
-            minWidth: 250,
-            filterParams: {
-                browserDatePicker: true,
-                comparator: function (filterLocalDateAtMidnight, cellValue) {
-                    if (!cellValue) return -1;
-                    const cellDate = new Date(cellValue);
-                    const cellDateOnly = new Date(cellDate.getFullYear(), cellDate.getMonth(), cellDate.getDate());
-                    if (cellDateOnly < filterLocalDateAtMidnight) return -1;
-                    if (cellDateOnly > filterLocalDateAtMidnight) return 1;
-                    return 0;
-                }
-            },
-            valueFormatter: (params) => {
-                const d = new Date(params.value);
-                return d.toLocaleDateString('en-GB') + ' ' + d.toLocaleTimeString('en-GB');
-            }
-        },
-        { field: 'pic', headerName: 'PIC', sortable: true, filter: true, minWidth: 200 },
-        { field: 'detail_issue_type', headerName: 'Detail Issue Type', sortable: true, filter: true, minWidth: 200 },
-        { field: 'issue_type', headerName: 'Issue Type', sortable: true, filter: true, minWidth: 200 },
-        { field: 'reference', headerName: 'Reference', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tower_name', headerName: 'Tower Name', sortable: true, filter: true, minWidth: 200 },
-        { field: 'tower_owner', headerName: 'Tower Owner', sortable: true, filter: true, minWidth: 200 },
+        { field: 'service_level_agreement', headerName: 'Service Level Agreement', sortable: true, filter: true, minWidth: 200 },
+        { field: 'agreement_status', headerName: 'Service Level Agreement Status', sortable: true, filter: true, minWidth: 200 },
         { field: 'actual_category', headerName: 'Actual Category', sortable: true, filter: true, minWidth: 200 },
-        { field: 'closed_by', headerName: 'Closed By', sortable: true, filter: true, minWidth: 200 },
+        { field: 'reference', headerName: 'TT From', sortable: true, filter: true, minWidth: 200 },
+        { field: 'tt_id_ampuhc', headerName: 'TT ID AmpuhC', sortable: true, filter: true, minWidth: 200 },
+        { field: 'class_of_service', headerName: 'Class of Service', sortable: true, filter: true, minWidth: 200 },
+        { field: 'maintenance_zone', headerName: 'Maintenance Zone', sortable: true, filter: true, minWidth: 200 },
+        { field: 'engineer', headerName: 'Fullname Engineer', sortable: true, filter: true, minWidth: 200 },
         { field: 'sla_status', headerName: 'SLA Status', sortable: true, filter: true, minWidth: 200 },
+        { field: 'mttr', headerName: 'MTTR', sortable: true, filter: true, minWidth: 200 },
         { field: 'mttr_hours', headerName: 'MTTR Hours', sortable: true, filter: true, minWidth: 200 },
     ];
 
