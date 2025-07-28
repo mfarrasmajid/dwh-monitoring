@@ -140,7 +140,7 @@
             <!--end:Menu item-->
             @endif
             <!--begin:Menu item-->
-            <div data-kt-menu-trigger="{default: 'click', lg: 'hover'}" data-kt-menu-placement="right-start" class="menu-item  @if ($path_current[0] == 'helpdesk') here show @endif py-2">
+            {{-- <div data-kt-menu-trigger="{default: 'click', lg: 'hover'}" data-kt-menu-placement="right-start" class="menu-item  @if ($path_current[0] == 'helpdesk') here show @endif py-2">
                 @if ($path_current[0] == 'helpdesk')
                 <!--begin:Menu link-->
                 <span class="menu-link menu-center theme-light-show bg-white">
@@ -209,7 +209,7 @@
                     <!--end:Menu item-->
                 </div>
                 <!--end:Menu sub-->
-            </div>
+            </div> --}}
             <!--end:Menu item-->
         </div>
         <!--end::Menu-->

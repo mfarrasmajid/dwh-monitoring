@@ -22,11 +22,11 @@ Route::get('/init_send_credentials_dashboard', 'MainController@init_send_credent
 Route::get('/test_wa_notif', 'MainController@test_wa_notif');
 Route::get('/get_ip', 'MainController@get_ip');
 
-Route::prefix('helpdesk')->group(function () {
-    Route::get('/dashboard', 'HelpdeskController@dashboard_portal')->name('dashboard_portal');
-    Route::get('/trouble_ticket', 'HelpdeskController@dashboard_trouble_ticket')->name('dashboard_trouble_ticket');
-    Route::get('/maintenance_order', 'HelpdeskController@dashboard_maintenance_order')->name('dashboard_maintenance_order');
-});
+// Route::prefix('helpdesk')->group(function () {
+//     Route::get('/dashboard', 'HelpdeskController@dashboard_portal')->name('dashboard_portal');
+//     Route::get('/trouble_ticket', 'HelpdeskController@dashboard_trouble_ticket')->name('dashboard_trouble_ticket');
+//     Route::get('/maintenance_order', 'HelpdeskController@dashboard_maintenance_order')->name('dashboard_maintenance_order');
+// });
 Route::prefix('dwh')->group(function () {
     Route::get('/dashboard', 'DWHController@dashboard_dwh')->name('dashboard_dwh');
     Route::get('/manage_airflow_logs', 'DWHController@manage_airflow_logs')->name('manage_airflow_logs');
@@ -44,12 +44,12 @@ Route::prefix('admin')->group(function () {
     Route::post('/detail_airflow_table/{id?}', 'AdminController@submit_airflow_table');
 });
 Route::prefix('api')->group(function() {
-    Route::prefix('helpdesk')->group(function () {
-        Route::get('/get_list_trouble_ticket', 'ApiController@get_list_trouble_ticket');
-        Route::post('/export_trouble_ticket', 'ApiController@export_trouble_ticket');
-        Route::get('/get_list_maintenance_order', 'ApiController@get_list_maintenance_order');
-        Route::post('/export_maintenance_order', 'ApiController@export_maintenance_order');
-    });
+    // Route::prefix('helpdesk')->group(function () {
+    //     Route::get('/get_list_trouble_ticket', 'ApiController@get_list_trouble_ticket');
+    //     Route::post('/export_trouble_ticket', 'ApiController@export_trouble_ticket');
+    //     Route::get('/get_list_maintenance_order', 'ApiController@get_list_maintenance_order');
+    //     Route::post('/export_maintenance_order', 'ApiController@export_maintenance_order');
+    // });
     Route::prefix('dwh')->group(function () {
         Route::post('/get_list_airflow_logs/{kategori}', 'DWHController@get_list_airflow_logs');
         Route::post('/get_list_airflow_logs_detail/{dag_name}', 'DWHController@get_list_airflow_logs_detail');
