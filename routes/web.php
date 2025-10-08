@@ -45,13 +45,22 @@ Route::prefix('admin')->group(function () {
     Route::get('/manage_airflow_table', 'AdminController@manage_airflow_table')->name('manage_airflow_table');
     Route::get('/detail_airflow_table/{id?}', 'AdminController@detail_airflow_table')->name('detail_airflow_table');
     Route::post('/detail_airflow_table/{id?}', 'AdminController@submit_airflow_table');
-    Route::get('/ingestion_registry',               'AdminController@index_datalake');
-    Route::get('/ingestion_registry/create',        'AdminController@create_datalake');
-    Route::post('/ingestion_registry',              'AdminController@store_datalake');
-    Route::get('/ingestion_registry/{id}/edit',     'AdminController@edit_datalake');
-    Route::put('/ingestion_registry/{id}',          'AdminController@update_datalake');
-    Route::delete('/ingestion_registry/{id}',       'AdminController@destroy_datalake');
-    Route::patch('/ingestion_registry/{id}/toggle', 'AdminController@toggle_datalake');
+    Route::get('/manage_datalake',               'AdminController@index_datalake');
+    Route::get('/manage_datalake/create',        'AdminController@create_datalake');
+    Route::post('/manage_datalake',              'AdminController@store_datalake');
+    Route::get('/manage_datalake/{id}/edit',     'AdminController@edit_datalake');
+    Route::put('/manage_datalake/{id}',          'AdminController@update_datalake');
+    Route::delete('/manage_datalake/{id}',       'AdminController@destroy_datalake');
+    Route::patch('/manage_datalake/{id}/toggle', 'AdminController@toggle_datalake');
+    Route::patch('/manage_datalake/{id}/queue', 'AdminController@queue_datalake')->name('queue_datalake');
+    Route::get('/manage_datawarehouse',            'AdminController@index_datawarehouse')->name('manage_datawarehouse');
+    Route::get('/manage_datawarehouse/create',      'AdminController@create_datawarehouse')->name('create_datawarehouse');
+    Route::post('/manage_datawarehouse',           'AdminController@store_datawarehouse')->name('store_datawarehouse');
+    Route::get('/manage_datawarehouse/{ck2ck}/edit','AdminController@edit_datawarehouse')->name('edit_datawarehouse');
+    Route::put('/manage_datawarehouse/{ck2ck}',     'AdminController@update_datawarehouse')->name('update_datawarehouse');
+    Route::delete('/manage_datawarehouse/{ck2ck}',  'AdminController@destroy_datawarehouse')->name('destroy_datawarehouse');
+    Route::delete('/manage_datawarehouse/{ck2ck}/toggle',  'AdminController@toggle_datawarehouse')->name('toggle_datawarehouse');
+    Route::patch('/manage_datawarehouse/{ck2ck}/queue', 'AdminController@queue_datawarehouse')->name('queue_datawarehouse');
 });
 Route::prefix('api')->group(function() {
     // Route::prefix('helpdesk')->group(function () {

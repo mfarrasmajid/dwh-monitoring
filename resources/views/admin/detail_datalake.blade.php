@@ -1,7 +1,7 @@
-{{-- resources/views/admin/dwh_ingestion_registry_form.blade.php --}}
+{{-- resources/views/admin/dwh_manage_datalake_form.blade.php --}}
 @extends('layouts.main')
 
-@section('title', 'Ingestion Registry')
+@section('title', isset($row) ? "Edit Job #{$row->id}" : 'New Datalake')
 
 @section('toolbar')
 <div class="app-header-wrapper d-flex align-items-center justify-content-around justify-content-lg-between flex-wrap gap-6 gap-lg-0 mb-6 mb-lg-0"
@@ -18,7 +18,7 @@
       <li class="breadcrumb-item text-muted">/</li>
       <li class="breadcrumb-item text-muted"><a href="{{ url('/admin/dashboard_admin') }}" class="text-muted text-hover-danger">Dashboard Admin</a></li>
       <li class="breadcrumb-item text-muted">/</li>
-      <li class="breadcrumb-item text-muted"><a href="{{ url('/admin/ingestion_registry') }}" class="text-muted text-hover-danger">Ingestion Registry</a></li>
+      <li class="breadcrumb-item text-muted"><a href="{{ url('/admin/manage_datalake') }}" class="text-muted text-hover-danger">Manage Datalake</a></li>
       <li class="breadcrumb-item text-muted">/</li>
       <li class="breadcrumb-item text-muted">{{ isset($data['id']) ? 'Edit' : 'Add' }}</li>
     </ul>
@@ -74,9 +74,9 @@
     <div class="card card-flush shadow-sm p-5" id="detail_form">
       <form
         @if(isset($data['id']))
-          action="{{ url('/admin/ingestion_registry') }}/{{ $data['id'] }}"
+          action="{{ url('/admin/manage_datalake') }}/{{ $data['id'] }}"
         @else
-          action="{{ url('/admin/ingestion_registry') }}"
+          action="{{ url('/admin/manage_datalake') }}"
         @endif
         method="POST">
         @csrf
@@ -265,7 +265,7 @@
             {{-- Read-only bookkeeping (optional show) --}}
             @if(isset($row))
               <div class="col-lg-12">
-                <div class="alert alert-secondary">
+                <div class="alert alert-info">
                   <div class="d-flex flex-wrap gap-4">
                     <div><strong>Last Status:</strong> {{ $row->last_status ?? '-' }}</div>
                     <div><strong>Last Run:</strong> {{ $row->last_run_at ?? '-' }}</div>
@@ -281,7 +281,7 @@
         </div>
 
         <div class="card-footer text-end">
-          <a href="{{ url('/admin/ingestion_registry') }}" class="btn btn-secondary me-5">Back</a>
+          <a href="{{ url('/admin/manage_datalake') }}" class="btn btn-secondary me-5">Back</a>
           <input type="submit" class="btn btn-danger" value="Submit"/>
         </div>
       </form>

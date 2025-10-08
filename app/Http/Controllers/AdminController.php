@@ -10,6 +10,7 @@ use DB;
 use App\Models\DwhIngestionRegistry;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Arr;
+use App\Models\Ck2CkIngestion;
 class AdminController extends Controller
 {
     use SSPManageUsers;
@@ -211,7 +212,7 @@ class AdminController extends Controller
         return 1;
     }
 
-    // GET /admin/ingestion_registry
+    // GET /admin/manage_datalake
     public function index_datalake(Request $request)
     {
         // Safe, version-agnostic
@@ -274,7 +275,7 @@ class AdminController extends Controller
         ]);
     }
 
-    // GET /admin/ingestion_registry/create
+    // GET /admin/manage_datalake/create
     public function create_datalake()
     {
         return view('admin.detail_datalake', [
@@ -282,7 +283,7 @@ class AdminController extends Controller
         ]);
     }
 
-    // POST /admin/ingestion_registry
+    // POST /admin/manage_datalake
     public function store_datalake(Request $request)
     {
         $validated = $this->validatePayloadDatalake($request);
@@ -294,11 +295,11 @@ class AdminController extends Controller
         $row = DwhIngestionRegistry::create($validated);
 
         return redirect()
-            ->to('/admin/ingestion_registry/'.$row->id.'/edit')
+            ->to('/admin/manage_datalake/'.$row->id.'/edit')
             ->with('success', 'Ingestion registry created.');
     }
 
-    // GET /admin/ingestion_registry/{id}/edit
+    // GET /admin/manage_datalake/{id}/edit
     public function edit_datalake($id)
     {
         $row = DwhIngestionRegistry::findOrFail($id);
@@ -307,7 +308,7 @@ class AdminController extends Controller
         ]);
     }
 
-    // PUT /admin/ingestion_registry/{id}
+    // PUT /admin/manage_datalake/{id}
     public function update_datalake(Request $request, $id)
     {
         $row = DwhIngestionRegistry::findOrFail($id);
@@ -319,22 +320,22 @@ class AdminController extends Controller
         $row->fill($validated)->save();
 
         return redirect()
-            ->to('/admin/ingestion_registry/'.$row->id.'/edit')
+            ->to('/admin/manage_datalake/'.$row->id.'/edit')
             ->with('success', 'Ingestion registry updated.');
     }
 
-    // DELETE /admin/ingestion_registry/{id}
+    // DELETE /admin/manage_datalake/{id}
     public function destroy_datalake($id)
     {
         $row = DwhIngestionRegistry::findOrFail($id);
         $row->delete();
 
         return redirect()
-            ->to('/admin/ingestion_registry')
+            ->to('/admin/manage_datalake')
             ->with('success', 'Ingestion registry deleted.');
     }
 
-    // PATCH /admin/ingestion_registry/{id}/toggle
+    // PATCH /admin/manage_datalake/{id}/toggle
     public function toggle_datalake($id)
     {
         $row = DwhIngestionRegistry::findOrFail($id);
@@ -342,6 +343,17 @@ class AdminController extends Controller
         $row->save();
 
         return back()->with('success', 'Status toggled to '.($row->enabled ? 'Enabled' : 'Disabled').'.');
+    }
+
+    public function queue_datalake($id)
+    {
+        $row = DwhIngestionRegistry::findOrFail($id);
+        // mark as due now; optional: mark status
+        $row->next_run_at = now();
+        $row->last_status = 'queued'; // optional
+        $row->save();
+
+        return back()->with('ok', "Queued ingestion #{$row->id} to run now.");
     }
 
     // --------- helpers ---------
@@ -417,5 +429,160 @@ class AdminController extends Controller
             $data['interval_minutes'] = null;
             // you can add extra cron validation here if needed
         }
+    }
+
+    public function index_datawarehouse(Request $request)
+    {
+        $q = Ck2CkIngestion::query();
+
+        if ($search = $request->get('q')) {
+            $q->where(function($w) use ($search) {
+                $w->where('target_table', 'ilike', "%{$search}%")
+                  ->orWhere('target_db', 'ilike', "%{$search}%")
+                  ->orWhere('src_database', 'ilike', "%{$search}%")
+                  ->orWhere('source_ch_conn_id', 'ilike', "%{$search}%")
+                  ->orWhere('target_ch_conn_id', 'ilike', "%{$search}%");
+            });
+        }
+
+        $rows = $q->orderBy('id', 'desc')->paginate(20)->withQueryString();
+
+        return view('admin.manage_datawarehouse', compact('rows'));
+    }
+
+    public function create_datawarehouse()
+    {
+        $row = new Ck2CkIngestion([
+            'enabled' => true,
+            'schedule_type' => 'interval',
+            'interval_minutes' => 15,
+            'parallel_slices' => 4,
+            'page_rows' => 50000,
+            'allow_drop_columns' => true,
+            'truncate_before_load' => false,
+            'log_type' => 'incremental',
+            'log_kategori' => 'Data Warehouse',
+        ]);
+        return view('admin.detail_datawarehouse', compact('row'));
+    }
+
+    public function store_datawarehouse(Request $request)
+    {
+        $data = $this->validatedDatawarehouse($request);
+
+        // Normalize checkboxes (if unchecked, send 0)
+        $data['enabled'] = (bool)($data['enabled'] ?? false);
+        $data['allow_drop_columns'] = (bool)($data['allow_drop_columns'] ?? false);
+        $data['truncate_before_load'] = (bool)($data['truncate_before_load'] ?? false);
+
+        $row = Ck2CkIngestion::create($data);
+
+        return redirect()
+            ->route('manage_datawarehouse')
+            ->with('ok', "Job #{$row->id} created.");
+    }
+
+    public function edit_datawarehouse(Ck2CkIngestion $ck2ck)
+    {
+        $row = $ck2ck;
+        return view('admin.detail_datawarehouse', compact('row'));
+    }
+
+    public function update_datawarehouse(Request $request, Ck2CkIngestion $ck2ck)
+    {
+        $data = $this->validatedDatawarehouse($request);
+
+        $data['enabled'] = (bool)($data['enabled'] ?? false);
+        $data['allow_drop_columns'] = (bool)($data['allow_drop_columns'] ?? false);
+        $data['truncate_before_load'] = (bool)($data['truncate_before_load'] ?? false);
+
+        $ck2ck->update($data);
+
+        return redirect()
+            ->route('manage_datawarehouse')
+            ->with('ok', "Job #{$ck2ck->id} updated.");
+    }
+
+    // PATCH /admin/manage_datawarehouse/{id}/toggle
+    public function toggle_datawarehouse($id)
+    {
+        $row = Ck2CkIngestion::findOrFail($id);
+        $row->enabled = ! $row->enabled;
+        $row->save();
+
+        return back()->with('success', 'Status toggled to '.($row->enabled ? 'Enabled' : 'Disabled').'.');
+    }
+
+    public function destroy_datawarehouse(Ck2CkIngestion $ck2ck)
+    {
+        $id = $ck2ck->id;
+        $ck2ck->delete();
+
+        return redirect()
+            ->route('manage_datawarehouse')
+            ->with('ok', "Job #{$id} deleted.");
+    }
+
+    public function queue_datawarehouse(Ck2CkIngestion $ck2ck)
+    {
+        // mark as due now; optional: mark status
+        $ck2ck->next_run_at = now();
+        $ck2ck->last_status = 'queued'; // optional
+        $ck2ck->save();
+
+        return back()->with('ok', "Queued ck2ck #{$ck2ck->id} to run now.");
+    }
+
+    private function validatedDatawarehouse(Request $request): array
+    {
+        $rules = [
+            'enabled'               => ['nullable', 'boolean'],
+
+            'source_ch_conn_id'     => ['required', 'string', 'max:255'],
+            'target_ch_conn_id'     => ['required', 'string', 'max:255'],
+            'pg_log_conn_id'        => ['required', 'string', 'max:255'],
+
+            'src_database'          => ['required', 'string', 'max:255'],
+            'src_sql'               => ['required', 'string'],
+
+            'target_db'             => ['required', 'string', 'max:255'],
+            'target_table'          => ['required', 'string', 'max:255'],
+
+            'pk_cols'               => ['required', 'string', 'max:1000'], // e.g. "id" or "ticket_id,site_id"
+            'version_col'           => ['nullable', 'string', 'max:255'],
+
+            'schedule_type'         => ['required', Rule::in(['interval','cron'])],
+            'interval_minutes'      => ['nullable', 'integer', 'min:1', 'max:10080'], // up to 7 days
+            'cron_expr'             => ['nullable', 'string', 'max:255'],
+
+            'parallel_slices'       => ['required', 'integer', 'min:1', 'max:128'],
+            'page_rows'             => ['required', 'integer', 'min:1', 'max:1000000'],
+
+            'allow_drop_columns'    => ['nullable', 'boolean'],
+            'truncate_before_load'  => ['nullable', 'boolean'],
+
+            'pre_sql'               => ['nullable', 'string'],
+            'post_sql'              => ['nullable', 'string'],
+
+            'log_table'             => ['required', 'string', 'max:255'],
+            'log_type'              => ['required', 'string', 'max:255'],
+            'log_kategori'          => ['required', 'string', 'max:255'],
+
+            // optional manual tweaks
+            'last_run_at'           => ['nullable', 'date'],
+            'next_run_at'           => ['nullable', 'date'],
+            'last_status'           => ['nullable', 'string', 'max:255'],
+            'last_error'            => ['nullable', 'string'],
+        ];
+
+        // If schedule_type = cron, cron_expr is required
+        if ($request->input('schedule_type') === 'cron') {
+            $rules['cron_expr'][] = 'required';
+        } else {
+            // interval required
+            $rules['interval_minutes'][] = 'required';
+        }
+
+        return $request->validate($rules);
     }
 }
