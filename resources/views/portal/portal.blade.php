@@ -98,15 +98,15 @@
                 </div>
             </div>
             @endif
-            {{-- <div class="col-lg-4">
+            <div class="col-lg-4">
                 <div class="card card-flush h-100">
                     <div class="card-body px-15 pb-15 pt-10">
-                        <div class="fs-2x fw-bolder text-dark text-hover-danger mb-5">Helpdesk</div>
+                        <div class="fs-2x fw-bolder text-dark text-hover-danger mb-5">AI Agent</div>
                         <img src="{{ asset('assets/_dwh/logo.png')}}" alt="Logo Admin" class="w-100 mb-10 d-block">
-                        <a href="{{ url('/helpdesk/dashboard')}}" class="btn btn-light-danger btn-sm w-100">Dashboard Helpdesk</a>
+                        <a href="{{ url('/ai/dashboard')}}" class="btn btn-light-danger btn-sm w-100">Dashboard AI Agent</a>
                     </div>
                 </div>
-            </div> --}}
+            </div>
         </div>  
     </div>
 </div>

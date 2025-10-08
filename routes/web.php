@@ -21,7 +21,10 @@ Route::get('/', 'MainController@portal')->name('portal');
 Route::get('/init_send_credentials_dashboard', 'MainController@init_send_credentials_dashboard');
 Route::get('/test_wa_notif', 'MainController@test_wa_notif');
 Route::get('/get_ip', 'MainController@get_ip');
-
+Route::prefix('ai')->group(function () {
+    Route::get('/dashboard', 'AiQueryController@dashboard_aiagent')->name('dashboard_aiagent');
+    Route::post('/stream', 'AiQueryController@stream');
+});
 // Route::prefix('helpdesk')->group(function () {
 //     Route::get('/dashboard', 'HelpdeskController@dashboard_portal')->name('dashboard_portal');
 //     Route::get('/trouble_ticket', 'HelpdeskController@dashboard_trouble_ticket')->name('dashboard_trouble_ticket');
@@ -42,6 +45,13 @@ Route::prefix('admin')->group(function () {
     Route::get('/manage_airflow_table', 'AdminController@manage_airflow_table')->name('manage_airflow_table');
     Route::get('/detail_airflow_table/{id?}', 'AdminController@detail_airflow_table')->name('detail_airflow_table');
     Route::post('/detail_airflow_table/{id?}', 'AdminController@submit_airflow_table');
+    Route::get('/ingestion_registry',               'AdminController@index_datalake');
+    Route::get('/ingestion_registry/create',        'AdminController@create_datalake');
+    Route::post('/ingestion_registry',              'AdminController@store_datalake');
+    Route::get('/ingestion_registry/{id}/edit',     'AdminController@edit_datalake');
+    Route::put('/ingestion_registry/{id}',          'AdminController@update_datalake');
+    Route::delete('/ingestion_registry/{id}',       'AdminController@destroy_datalake');
+    Route::patch('/ingestion_registry/{id}/toggle', 'AdminController@toggle_datalake');
 });
 Route::prefix('api')->group(function() {
     // Route::prefix('helpdesk')->group(function () {

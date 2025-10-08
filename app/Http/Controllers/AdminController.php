@@ -7,7 +7,8 @@ use Illuminate\Support\Facades\Hash;
 use App\Traits\SSPManageUsers;
 use App\Traits\SSPManageAirflowTable;
 use DB;
-
+use App\Models\DwhIngestionRegistry;
+use Illuminate\Validation\Rule;
 class AdminController extends Controller
 {
     use SSPManageUsers;
@@ -207,5 +208,175 @@ class AdminController extends Controller
                     ]);
         $request->session()->flash('success', 'Table DWH berhasil dihapus.');
         return 1;
+    }
+
+    // GET /admin/ingestion_registry
+    public function index_datalake(Request $request)
+    {
+        $q = trim((string) $request->get('q', ''));
+        $rows = DwhIngestionRegistry::query()
+            ->when($q, function ($qq) use ($q) {
+                $qq->where(function ($w) use ($q) {
+                    $w->where('source_db', 'ilike', "%{$q}%")
+                      ->orWhere('source_table', 'ilike', "%{$q}%")
+                      ->orWhere('target_db', 'ilike', "%{$q}%")
+                      ->orWhere('target_table', 'ilike', "%{$q}%")
+                      ->orWhere('source_mysql_conn_id', 'ilike', "%{$q}%")
+                      ->orWhere('target_ch_conn_id', 'ilike', "%{$q}%");
+                });
+            })
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.manage_datalake', [
+            'rows' => $rows,
+            'q'    => $q,
+        ]);
+    }
+
+    // GET /admin/ingestion_registry/create
+    public function create_datalake()
+    {
+        return view('admin.detail_datalake', [
+            'data' => [] // form expects $data
+        ]);
+    }
+
+    // POST /admin/ingestion_registry
+    public function store_datalake(Request $request)
+    {
+        $validated = $this->validatePayloadDatalake($request);
+
+        // Normalize checkboxes & defaults
+        $validated['enabled'] = $request->boolean('enabled');
+        $this->normalizeScheduleDatalake($validated);
+
+        $row = DwhIngestionRegistry::create($validated);
+
+        return redirect()
+            ->to('/admin/ingestion_registry/'.$row->id.'/edit')
+            ->with('success', 'Ingestion registry created.');
+    }
+
+    // GET /admin/ingestion_registry/{id}/edit
+    public function edit_datalake($id)
+    {
+        $row = DwhIngestionRegistry::findOrFail($id);
+        return view('admin.detail_datalake', [
+            'data' => ['id' => $row->id, 'row' => $row],
+        ]);
+    }
+
+    // PUT /admin/ingestion_registry/{id}
+    public function update_datalake(Request $request, $id)
+    {
+        $row = DwhIngestionRegistry::findOrFail($id);
+
+        $validated = $this->validatePayloadDatalake($request);
+        $validated['enabled'] = $request->boolean('enabled');
+        $this->normalizeScheduleDatalake($validated);
+
+        $row->fill($validated)->save();
+
+        return redirect()
+            ->to('/admin/ingestion_registry/'.$row->id.'/edit')
+            ->with('success', 'Ingestion registry updated.');
+    }
+
+    // DELETE /admin/ingestion_registry/{id}
+    public function destroy_datalake($id)
+    {
+        $row = DwhIngestionRegistry::findOrFail($id);
+        $row->delete();
+
+        return redirect()
+            ->to('/admin/ingestion_registry')
+            ->with('success', 'Ingestion registry deleted.');
+    }
+
+    // PATCH /admin/ingestion_registry/{id}/toggle
+    public function toggle_datalake($id)
+    {
+        $row = DwhIngestionRegistry::findOrFail($id);
+        $row->enabled = ! $row->enabled;
+        $row->save();
+
+        return back()->with('success', 'Status toggled to '.($row->enabled ? 'Enabled' : 'Disabled').'.');
+    }
+
+    // --------- helpers ---------
+
+    private function validatePayloadDatalake(Request $request): array
+    {
+        $rules = [
+            'enabled'               => ['nullable'],
+            // conn ids
+            'source_mysql_conn_id'  => ['required','string','max:255'],
+            'target_ch_conn_id'     => ['required','string','max:255'],
+            'pg_log_conn_id'        => ['nullable','string','max:255'],
+            // source & target
+            'source_db'             => ['required','string','max:255'],
+            'source_table'          => ['required','string','max:255'],
+            'target_db'             => ['required','string','max:255'],
+            'target_table'          => ['required','string','max:255'],
+            // keys
+            'pk_col'                => ['required','string','max:255'],
+            'version_col'           => ['nullable','string','max:255'],
+            // schedule
+            'schedule_type'         => ['required', Rule::in(['interval','cron'])],
+            'interval_minutes'      => ['nullable','integer','min:1'],
+            'cron_expr'             => ['nullable','string','max:255'],
+            // perf
+            'chunk_rows'            => ['nullable','integer','min:1000'],
+            'max_parallel'          => ['nullable','integer','min:1','max:64'],
+            'tmp_dir'               => ['nullable','string','max:512'],
+            'ndjson_prefix'         => ['nullable','string','max:255'],
+            // logs
+            'log_table'             => ['nullable','string','max:255'],
+            'log_type'              => ['nullable','string','max:255'],
+            'log_kategori'          => ['nullable','string','max:255'],
+        ];
+
+        $validated = $request->validate($rules, [
+            'schedule_type.in'          => 'Schedule type must be interval or cron.',
+            'interval_minutes.min'      => 'Interval must be at least 1 minute.',
+            'chunk_rows.min'            => 'Chunk rows must be at least 1000.',
+            'max_parallel.max'          => 'Max parallel cannot exceed 64.',
+        ]);
+
+        // Conditional required
+        $st = $validated['schedule_type'] ?? 'interval';
+        if ($st === 'interval' && empty($validated['interval_minutes'])) {
+            return back()->withErrors(['interval_minutes' => 'Interval minutes is required for interval schedule.'])
+                         ->withInput()->throwResponse();
+        }
+        if ($st === 'cron' && empty($validated['cron_expr'])) {
+            return back()->withErrors(['cron_expr' => 'Cron expression is required for cron schedule.'])
+                         ->withInput()->throwResponse();
+        }
+
+        return $validated;
+    }
+
+    private function normalizeScheduleDatalake(array &$data): void
+    {
+        // defaults
+        $data['pg_log_conn_id'] = $data['pg_log_conn_id'] ?? 'airflow_logs_mitratel';
+        $data['chunk_rows']     = (int)($data['chunk_rows'] ?? 10000);
+        $data['max_parallel']   = (int)($data['max_parallel'] ?? 4);
+        $data['tmp_dir']        = $data['tmp_dir'] ?? '/tmp';
+        $data['ndjson_prefix']  = $data['ndjson_prefix'] ?? 'DL_generic_';
+        $data['log_table']      = $data['log_table'] ?? 'airflow_logs';
+        $data['log_type']       = $data['log_type'] ?? 'incremental';
+        $data['log_kategori']   = $data['log_kategori'] ?? 'Data Lake';
+
+        if (($data['schedule_type'] ?? 'interval') === 'interval') {
+            $data['cron_expr'] = null;
+            $data['interval_minutes'] = (int)($data['interval_minutes'] ?? 15);
+        } else {
+            $data['interval_minutes'] = null;
+            // you can add extra cron validation here if needed
+        }
     }
 }

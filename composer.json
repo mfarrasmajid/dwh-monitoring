@@ -11,7 +11,10 @@
         "laravel/framework": "^8.75",
         "laravel/sanctum": "^2.11",
         "laravel/tinker": "^2.5",
-        "phpoffice/phpspreadsheet": "^1.12"
+        "maennchen/zipstream-php": "2.2.6",
+        "phpoffice/phpspreadsheet": "^1.29",
+        "smi2/phpclickhouse": "1.4.6",
+        "the-tinderbox/clickhouse-php-client": "^3.1"
     },
     "require-dev": {
         "facade/ignition": "^2.5",
@@ -56,7 +59,10 @@
     "config": {
         "optimize-autoloader": true,
         "preferred-install": "dist",
-        "sort-packages": true
+        "sort-packages": true,
+        "platform": {
+            "php": "7.4.26"
+        }
     },
     "minimum-stability": "dev",
     "prefer-stable": true
