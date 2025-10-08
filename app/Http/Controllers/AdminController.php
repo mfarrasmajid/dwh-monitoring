@@ -9,6 +9,7 @@ use App\Traits\SSPManageAirflowTable;
 use DB;
 use App\Models\DwhIngestionRegistry;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Arr;
 class AdminController extends Controller
 {
     use SSPManageUsers;
@@ -213,21 +214,59 @@ class AdminController extends Controller
     // GET /admin/ingestion_registry
     public function index_datalake(Request $request)
     {
-        $q = trim((string) $request->get('q', ''));
+        // Safe, version-agnostic
+        $q = trim((string) $request->query('q', ''));
+        $f = (array) $request->input('filter', []);
+
         $rows = DwhIngestionRegistry::query()
-            ->when($q, function ($qq) use ($q) {
-                $qq->where(function ($w) use ($q) {
-                    $w->where('source_db', 'ilike', "%{$q}%")
-                      ->orWhere('source_table', 'ilike', "%{$q}%")
-                      ->orWhere('target_db', 'ilike', "%{$q}%")
-                      ->orWhere('target_table', 'ilike', "%{$q}%")
-                      ->orWhere('source_mysql_conn_id', 'ilike', "%{$q}%")
-                      ->orWhere('target_ch_conn_id', 'ilike', "%{$q}%");
+            // global search
+            ->when($q !== '', function ($qbuilder) use ($q) {
+                $qbuilder->where(function ($qq) use ($q) {
+                    $like = "%{$q}%";
+                    $qq->where('source_db', 'like', $like)
+                    ->orWhere('source_table', 'like', $like)
+                    ->orWhere('source_mysql_conn_id', 'like', $like)
+                    ->orWhere('target_db', 'like', $like)
+                    ->orWhere('target_table', 'like', $like)
+                    ->orWhere('target_ch_conn_id', 'like', $like);
                 });
             })
+
+            // per-column filters
+            ->when(($id = Arr::get($f, 'id')), fn($qq) => $qq->where('id', (int) $id))
+            ->when(array_key_exists('enabled', $f) && $f['enabled'] !== '',
+                fn($qq) => $qq->where('enabled', (int) $f['enabled'])
+            )
+            ->when(($v = Arr::get($f, 'source')), function ($qq) use ($v) {
+                $like = "%{$v}%";
+                $qq->where(function ($w) use ($like) {
+                    $w->where('source_db', 'like', $like)
+                    ->orWhere('source_table', 'like', $like)
+                    ->orWhere('source_mysql_conn_id', 'like', $like);
+                });
+            })
+            ->when(($v = Arr::get($f, 'target')), function ($qq) use ($v) {
+                $like = "%{$v}%";
+                $qq->where(function ($w) use ($like) {
+                    $w->where('target_db', 'like', $like)
+                    ->orWhere('target_table', 'like', $like)
+                    ->orWhere('target_ch_conn_id', 'like', $like);
+                });
+            })
+            ->when(($v = Arr::get($f, 'schedule_type')), fn($qq) => $qq->where('schedule_type', $v))
+            ->when(($v = Arr::get($f, 'schedule_text')), function ($qq) use ($v) {
+                $like = "%{$v}%";
+                $qq->where(function ($w) use ($like) {
+                    $w->where('interval_minutes', 'like', $like)
+                    ->orWhere('cron_expr', 'like', $like);
+                });
+            })
+            ->when(($v = Arr::get($f, 'last_status')), fn($qq) => $qq->where('last_status', 'like', "%{$v}%"))
+            ->when(($v = Arr::get($f, 'next_run_from')), fn($qq) => $qq->whereDate('next_run_at', '>=', $v))
+            ->when(($v = Arr::get($f, 'next_run_to')), fn($qq) => $qq->whereDate('next_run_at', '<=', $v))
+
             ->orderByDesc('id')
-            ->paginate(20)
-            ->withQueryString();
+            ->paginate(15);
 
         return view('admin.manage_datalake', [
             'rows' => $rows,
