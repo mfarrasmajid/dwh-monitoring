@@ -65,9 +65,10 @@
 
   <div class="table-responsive">
     {{-- One form to rule them all (so paging preserves filters) --}}
-    <form method="GET" id="filterForm">
+    <form method="GET" id="filterForm" action="{{ url()->current() }}">
       {{-- Keep global q when filtering per column --}}
       <input type="hidden" name="q" value="{{ request('q') }}">
+    </form>
 
       <table class="table align-middle">
         <thead>
@@ -206,7 +207,6 @@
           @endforelse
         </tbody>
       </table>
-    </form>
   </div>
 
   <div class="mt-4 navigation-custom">

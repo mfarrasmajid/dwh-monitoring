@@ -59,8 +59,16 @@ Route::prefix('admin')->group(function () {
     Route::get('/manage_datawarehouse/{ck2ck}/edit','AdminController@edit_datawarehouse')->name('edit_datawarehouse');
     Route::put('/manage_datawarehouse/{ck2ck}',     'AdminController@update_datawarehouse')->name('update_datawarehouse');
     Route::delete('/manage_datawarehouse/{ck2ck}',  'AdminController@destroy_datawarehouse')->name('destroy_datawarehouse');
-    Route::delete('/manage_datawarehouse/{ck2ck}/toggle',  'AdminController@toggle_datawarehouse')->name('toggle_datawarehouse');
+    Route::patch('/manage_datawarehouse/{ck2ck}/toggle',  'AdminController@toggle_datawarehouse')->name('toggle_datawarehouse');
     Route::patch('/manage_datawarehouse/{ck2ck}/queue', 'AdminController@queue_datawarehouse')->name('queue_datawarehouse');
+    Route::get('/manage_datamart',            'AdminController@index_datamart')->name('manage_datamart');
+    Route::get('/manage_datamart/create',      'AdminController@create_datamart')->name('create_datamart');
+    Route::post('/manage_datamart',           'AdminController@store_datamart')->name('store_datamart');
+    Route::get('/manage_datamart/{id}/edit',   'AdminController@edit_datamart')->name('edit_datamart');
+    Route::put('/manage_datamart/{id}',        'AdminController@update_datamart')->name('update_datamart');
+    Route::delete('/manage_datamart/{id}',     'AdminController@destroy_datamart')->name('destroy_datamart');
+    Route::patch('/manage_datamart/{id}/toggle','AdminController@toggle_datamart')->name('toggle_datamart');
+    Route::patch('/manage_datamart/{id}/queue', 'AdminController@queue_datamart')->name('queue_datamart');
 });
 Route::prefix('api')->group(function() {
     // Route::prefix('helpdesk')->group(function () {

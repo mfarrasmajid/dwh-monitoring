@@ -11,6 +11,7 @@ use App\Models\DwhIngestionRegistry;
 use Illuminate\Validation\Rule;
 use Illuminate\Support\Arr;
 use App\Models\Ck2CkIngestion;
+use App\Models\Ck2PgIngestion;
 class AdminController extends Controller
 {
     use SSPManageUsers;
@@ -353,7 +354,7 @@ class AdminController extends Controller
         $row->last_status = 'queued'; // optional
         $row->save();
 
-        return back()->with('ok', "Queued ingestion #{$row->id} to run now.");
+        return back()->with('success', "Queued ingestion #{$row->id} to run now.");
     }
 
     // --------- helpers ---------
@@ -414,7 +415,7 @@ class AdminController extends Controller
     {
         // defaults
         $data['pg_log_conn_id'] = $data['pg_log_conn_id'] ?? 'airflow_logs_mitratel';
-        $data['chunk_rows']     = (int)($data['chunk_rows'] ?? 10000);
+        $data['chunk_rows']     = (int)($data['chunk_rows'] ?? 100000);
         $data['max_parallel']   = (int)($data['max_parallel'] ?? 4);
         $data['tmp_dir']        = $data['tmp_dir'] ?? '/tmp';
         $data['ndjson_prefix']  = $data['ndjson_prefix'] ?? 'DL_generic_';
@@ -479,7 +480,7 @@ class AdminController extends Controller
 
         return redirect()
             ->route('manage_datawarehouse')
-            ->with('ok', "Job #{$row->id} created.");
+            ->with('success', "Job #{$row->id} created.");
     }
 
     public function edit_datawarehouse(Ck2CkIngestion $ck2ck)
@@ -500,7 +501,7 @@ class AdminController extends Controller
 
         return redirect()
             ->route('manage_datawarehouse')
-            ->with('ok', "Job #{$ck2ck->id} updated.");
+            ->with('success', "Job #{$ck2ck->id} updated.");
     }
 
     // PATCH /admin/manage_datawarehouse/{id}/toggle
@@ -520,7 +521,7 @@ class AdminController extends Controller
 
         return redirect()
             ->route('manage_datawarehouse')
-            ->with('ok', "Job #{$id} deleted.");
+            ->with('success', "Job #{$id} deleted.");
     }
 
     public function queue_datawarehouse(Ck2CkIngestion $ck2ck)
@@ -530,7 +531,7 @@ class AdminController extends Controller
         $ck2ck->last_status = 'queued'; // optional
         $ck2ck->save();
 
-        return back()->with('ok', "Queued ck2ck #{$ck2ck->id} to run now.");
+        return back()->with('success', "Queued ck2ck #{$ck2ck->id} to run now.");
     }
 
     private function validatedDatawarehouse(Request $request): array
@@ -585,4 +586,273 @@ class AdminController extends Controller
 
         return $request->validate($rules);
     }
+
+    // ===================== Datamart (ClickHouse -> PostgreSQL) =====================
+
+    /**
+     * GET /admin/manage_datamart
+     * List with search + filters, returns view: admin.manage_datamart
+     */
+    public function index_datamart(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        $f = (array) $request->input('filter', []);
+
+        $rows = Ck2PgIngestion::query()
+            // global search
+            ->when($q !== '', function ($qb) use ($q) {
+                $like = "%{$q}%";
+                $qb->where(function ($w) use ($like) {
+                    $w->where('source_db', 'ilike', $like)
+                    ->orWhere('source_table', 'ilike', $like)
+                    ->orWhere('source_ch_conn_id', 'ilike', $like)
+                    ->orWhere('target_schema', 'ilike', $like)
+                    ->orWhere('target_table', 'ilike', $like)
+                    ->orWhere('target_pg_conn_id', 'ilike', $like);
+                });
+            })
+            // per-column filters (matching the Blade filter row)
+            ->when(($v = $f['id'] ?? null), fn($qb) => $qb->where('id', (int) $v))
+            ->when(array_key_exists('enabled', $f) && $f['enabled'] !== '',
+                fn($qb) => $qb->where('enabled', (int) $f['enabled'])
+            )
+            ->when(($v = $f['source_db'] ?? null),        fn($qb) => $qb->where('source_db', 'ilike', "%{$v}%"))
+            ->when(($v = $f['source_table'] ?? null),     fn($qb) => $qb->where('source_table', 'ilike', "%{$v}%"))
+            ->when(($v = $f['source_ch_conn_id'] ?? null),fn($qb) => $qb->where('source_ch_conn_id', 'ilike', "%{$v}%"))
+            ->when(($v = $f['target_schema'] ?? null),    fn($qb) => $qb->where('target_schema', 'ilike', "%{$v}%"))
+            ->when(($v = $f['target_table'] ?? null),     fn($qb) => $qb->where('target_table', 'ilike', "%{$v}%"))
+            ->when(($v = $f['target_pg_conn_id'] ?? null),fn($qb) => $qb->where('target_pg_conn_id', 'ilike', "%{$v}%"))
+            ->when(($v = $f['cursor_col'] ?? null),       fn($qb) => $qb->where('cursor_col', 'ilike', "%{$v}%"))
+            ->when(($v = $f['schedule_type'] ?? null),    fn($qb) => $qb->where('schedule_type', $v))
+            ->when(($v = $f['schedule_text'] ?? null), function ($qb) use ($v) {
+                $like = "%{$v}%";
+                $qb->where(function ($w) use ($like) {
+                    $w->where('interval_minutes', '::text ilike', $like) // PG casts handled below if needed
+                    ->orWhere('cron_expr', 'ilike', $like);
+                });
+            })
+            ->when(($v = $f['chunk_rows'] ?? null),       fn($qb) => $qb->where('chunk_rows', (int) $v))
+            ->when(($v = $f['max_parallel'] ?? null),     fn($qb) => $qb->where('max_parallel', (int) $v))
+            ->when(($v = $f['last_status'] ?? null),      fn($qb) => $qb->where('last_status', 'ilike', "%{$v}%"))
+
+            ->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.manage_datamart', compact('rows','q'));
+    }
+
+    /**
+     * GET /admin/manage_datamart/create
+     * Return a blank form view (non-modal) for creating a job.
+     * View suggestion: resources/views/admin/detail_datamart.blade.php
+     */
+    public function create_datamart()
+    {
+        // default values
+        $row = new Ck2PgIngestion([
+            'enabled' => true,
+            'schedule_type' => 'interval',
+            'interval_minutes' => 30,
+            'chunk_rows' => 100000,
+            'max_parallel' => 4,
+            'drop_extra_columns' => true,
+            'copy_timeout_seconds' => 7200,
+            'log_type' => 'incremental',
+            'log_kategori' => 'Data Mart',
+            'log_table' => 'airflow_logs',
+        ]);
+        return view('admin.detail_datamart', compact('row'));
+    }
+
+    /**
+     * POST /admin/manage_datamart
+     */
+    public function store_datamart(Request $request)
+    {
+        $nik_tg = $request->session()->get('user')->nik_tg ?? 'system';
+        $now    = date('Y-m-d H:i:s');
+
+        $data = $this->validatePayloadCk2pg($request);
+
+        // normalize checkboxes
+        $data['enabled'] = (bool)($data['enabled'] ?? false);
+        $data['drop_extra_columns'] = (bool)($data['drop_extra_columns'] ?? false);
+
+        // schedule normalize
+        $this->normalizeScheduleCk2pg($data);
+
+        // Normalize pk_value (trim spaces)
+        if (!empty($data['pk_value'])) {
+            $data['pk_value'] = collect(explode(',', $data['pk_value']))
+                ->map(fn($s) => trim($s))
+                ->filter()
+                ->implode(',');
+        }
+
+        $row = Ck2PgIngestion::create($data);
+
+        DB::table('log')->insert([
+            'nik_tg'   => $nik_tg,
+            'activity' => "Create Datamart registry ID {$row->id}",
+            'status'   => 'SUCCESS',
+            'datetime' => $now,
+        ]);
+
+        return redirect()
+            ->route('edit_datamart', $row->id)
+            ->with('success', 'Ingestion registry created.');
+    }
+
+    /**
+     * GET /admin/manage_datamart/{id}/edit
+     */
+    public function edit_datamart($id)
+    {
+        $row = Ck2PgIngestion::findOrFail($id);
+        return view('admin.detail_datamart', compact('row'));
+    }
+
+    /**
+     * PUT /admin/manage_datamart/{id}
+     */
+    public function update_datamart(Request $request, $id)
+    {
+        $nik_tg = $request->session()->get('user')->nik_tg ?? 'system';
+        $now    = date('Y-m-d H:i:s');
+
+        $row = Ck2PgIngestion::findOrFail($id);
+
+        $data = $this->validatePayloadCk2pg($request);
+
+        $data['enabled'] = (bool)($data['enabled'] ?? false);
+        $data['drop_extra_columns'] = (bool)($data['drop_extra_columns'] ?? false);
+
+        $this->normalizeScheduleCk2pg($data);
+
+        // Normalize pk_value (trim spaces)
+        if (!empty($data['pk_value'])) {
+            $data['pk_value'] = collect(explode(',', $data['pk_value']))
+                ->map(fn($s) => trim($s))
+                ->filter()
+                ->implode(',');
+        }
+
+        $row->fill($data)->save();
+
+        DB::table('log')->insert([
+            'nik_tg'   => $nik_tg,
+            'activity' => "Update Datamart registry ID {$row->id}",
+            'status'   => 'SUCCESS',
+            'datetime' => $now,
+        ]);
+
+        return redirect()
+            ->route('edit_datamart', $row->id)
+            ->with('success', 'Ingestion registry updated.');
+    }
+
+    /**
+     * DELETE /admin/manage_datamart/{id}
+     */
+    public function destroy_datamart($id)
+    {
+        $nik_tg = request()->session()->get('user')->nik_tg ?? 'system';
+        $now    = date('Y-m-d H:i:s');
+
+        $row = Ck2PgIngestion::findOrFail($id);
+        $row->delete();
+
+        DB::table('log')->insert([
+            'nik_tg'   => $nik_tg,
+            'activity' => "Delete Datamart registry ID {$id}",
+            'status'   => 'SUCCESS',
+            'datetime' => $now,
+        ]);
+
+        return redirect()
+            ->route('manage_datamart')
+            ->with('success', "Job #{$id} deleted.");
+    }
+
+    /**
+     * PATCH /admin/manage_datamart/{id}/toggle
+     */
+    public function toggle_datamart($id)
+    {
+        $row = Ck2PgIngestion::findOrFail($id);
+        $row->enabled = ! $row->enabled;
+        $row->save();
+
+        return back()->with('success', 'Status toggled to '.($row->enabled ? 'Enabled' : 'Disabled').'.');
+    }
+
+    /**
+     * PATCH /admin/manage_datamart/{id}/queue
+     */
+    public function queue_datamart($id)
+    {
+        $row = Ck2PgIngestion::findOrFail($id);
+        $row->next_run_at = now();
+        $row->last_status = 'queued';
+        $row->last_error  = null;
+        $row->save();
+
+        return back()->with('success', "Queued job #{$row->id} to run on next DAG tick.");
+    }
+
+    // ----------------------- helpers -----------------------
+
+    private function validatePayloadCk2pg(Request $request): array
+    {
+        $rules = [
+            'enabled' => ['required','boolean'],
+            'source_ch_conn_id' => ['required','string'],
+
+            'source_sql' => ['required','string'],  // query-only now
+            'pk_value'   => ['nullable','string'],  // "id" or "id,name"
+            'cursor_col' => ['nullable','string'],
+
+            'target_pg_conn_id' => ['required','string'],
+            'target_schema' => ['required','string'],
+            'target_table'  => ['required','string'],
+
+            'schedule_type' => ['nullable','in:interval,cron'],
+            'interval_minutes' => ['nullable','integer','min:1'],
+            'cron_expr' => ['nullable','string'],
+
+            'chunk_rows' => ['nullable','integer','min:100'],
+            'max_parallel' => ['nullable','integer','min:1'],
+            'drop_extra_columns' => ['nullable','boolean'],
+            'copy_timeout_seconds' => ['nullable','integer','min:1'],
+            'insert_page_size' => ['nullable','integer','min:100','max:20000'],
+            'commit_every_chunks' => ['nullable','integer','min:1'],
+
+            'pg_log_conn_id' => ['required','string'],
+            'log_table' => ['required','string'],
+            'log_type' => ['required','string'],
+            'log_kategori' => ['required','string'],
+        ];
+
+        // If schedule_type = cron, cron_expr required. Else interval required.
+        if ($request->input('schedule_type') === 'cron') {
+            $rules['cron_expr'][] = 'required';
+        } else {
+            $rules['interval_minutes'][] = 'required';
+        }
+
+        return $request->validate($rules);
+    }
+
+    private function normalizeScheduleCk2pg(array &$data): void
+    {
+        if (($data['schedule_type'] ?? 'interval') === 'interval') {
+            $data['interval_minutes'] = (int)($data['interval_minutes'] ?? 30);
+            $data['cron_expr'] = '*/15 * * * *';
+        } else {
+            $data['cron_expr'] = $data['cron_expr'] ?? '*/15 * * * *';
+            $data['interval_minutes'] = 15;
+        }
+    }
+
 }

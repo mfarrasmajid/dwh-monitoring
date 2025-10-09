@@ -111,6 +111,21 @@
                 <!--begin::Separator-->
                 <div class="separator separator-dashed my-3"></div>
                 <!--end::Separator-->
+                <!--begin::Item-->
+                <div class="d-flex flex-stack">
+                    <!--begin::Title-->
+                    <a href="{{ url('/admin/manage_datamart')}}" class="text-danger opacity-75-hover fs-6 fw-semibold">Manage Datamart</a>
+                    <!--end::Title-->
+                    <!--begin::Action-->
+                    <a href="{{ url('/admin/manage_datamart')}}" class="btn btn-icon btn-sm h-auto btn-color-gray-500 btn-active-color-danger justify-content-end">
+                        <i class="ki-outline ki-exit-right-corner fs-2"></i>
+                    </a>
+                    <!--end::Action-->
+                </div>
+                <!--end::Item-->
+                <!--begin::Separator-->
+                <div class="separator separator-dashed my-3"></div>
+                <!--end::Separator-->
             </div>
             <!--end::Body-->
         </div>
