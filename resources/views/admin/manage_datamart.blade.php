@@ -48,10 +48,6 @@
 
   <div class="table-responsive">
     {{-- single form so filters persist with pagination --}}
-    <form method="GET" id="filterForm">
-      <input type="hidden" name="q" value="{{ request('q') }}">
-    </form>
-
       <table class="table align-middle">
         <thead>
           <tr>
@@ -66,6 +62,8 @@
             <th class="text-end" style="width:220px"></th>
           </tr>
 
+          <form method="GET" id="filterForm">
+            <input type="hidden" name="q" value="{{ request('q') }}">
           {{-- filter row --}}
           <tr>
             <th>
@@ -78,8 +76,8 @@
             <th>
               <select class="form-select form-select-sm" name="filter[enabled]" onchange="this.form.submit()">
                 <option value="">All</option>
-                <option value="1" @selected(($f['enabled'] ?? '')=='1')>Enabled</option>
-                <option value="0" @selected(($f['enabled'] ?? '')=='0')>Disabled</option>
+                <option value="1" @if (isset($f['enabled'])) @if ($f['enabled'] == '1') selected @endif @endif>Enabled</option>
+                <option value="0" @if (isset($f['enabled'])) @if ($f['enabled'] == '0') selected @endif @endif>Disabled</option>
               </select>
             </th>
 
@@ -124,8 +122,8 @@
               <div class="d-flex gap-2">
                 <select class="form-select form-select-sm" name="filter[schedule_type]" style="max-width: 120px">
                   <option value="">Any</option>
-                  <option value="interval" @selected(($f['schedule_type'] ?? '')==='interval')>Interval</option>
-                  <option value="cron" @selected(($f['schedule_type'] ?? '')==='cron')>Cron</option>
+                  <option value="interval" @if (isset($f['schedule_type'])) @if ($f['schedule_type'] == 'interval') selected @endif @endif>Interval</option>
+                  <option value="cron" @if (isset($f['schedule_type'])) @if ($f['schedule_type'] == 'cron') selected @endif @endif>Cron</option>
                 </select>
                 <input class="form-control form-control-sm"
                        name="filter[interval_minutes]"
@@ -161,6 +159,7 @@
               <a href="{{ url()->current() }}" class="btn btn-sm btn-outline-secondary">Reset</a>
             </th>
           </tr>
+          </form>
         </thead>
 
         <tbody>

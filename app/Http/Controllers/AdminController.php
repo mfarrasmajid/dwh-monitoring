@@ -12,6 +12,7 @@ use Illuminate\Validation\Rule;
 use Illuminate\Support\Arr;
 use App\Models\Ck2CkIngestion;
 use App\Models\Ck2PgIngestion;
+use Illuminate\Support\Str;
 class AdminController extends Controller
 {
     use SSPManageUsers;
@@ -216,59 +217,128 @@ class AdminController extends Controller
     // GET /admin/manage_datalake
     public function index_datalake(Request $request)
     {
-        // Safe, version-agnostic
+        // Explicitly read GET params (avoid '' -> 0 pitfalls)
         $q = trim((string) $request->query('q', ''));
-        $f = (array) $request->input('filter', []);
+        $f = (array) $request->query('filter', []);
 
-        $rows = DwhIngestionRegistry::query()
-            // global search
-            ->when($q !== '', function ($qbuilder) use ($q) {
-                $qbuilder->where(function ($qq) use ($q) {
-                    $like = "%{$q}%";
-                    $qq->where('source_db', 'like', $like)
-                    ->orWhere('source_table', 'like', $like)
-                    ->orWhere('source_mysql_conn_id', 'like', $like)
-                    ->orWhere('target_db', 'like', $like)
-                    ->orWhere('target_table', 'like', $like)
-                    ->orWhere('target_ch_conn_id', 'like', $like);
-                });
-            })
+        // Helpers
+        $hasNonEmpty = function (string $k) use ($f): bool {
+            return array_key_exists($k, $f) && trim((string) $f[$k]) !== '';
+        };
+        $ciLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            $qb->whereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+        };
+        $ciOrLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            $qb->orWhereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+        };
 
-            // per-column filters
-            ->when(($id = Arr::get($f, 'id')), fn($qq) => $qq->where('id', (int) $id))
-            ->when(array_key_exists('enabled', $f) && $f['enabled'] !== '',
-                fn($qq) => $qq->where('enabled', (int) $f['enabled'])
-            )
-            ->when(($v = Arr::get($f, 'source')), function ($qq) use ($v) {
-                $like = "%{$v}%";
-                $qq->where(function ($w) use ($like) {
-                    $w->where('source_db', 'like', $like)
-                    ->orWhere('source_table', 'like', $like)
-                    ->orWhere('source_mysql_conn_id', 'like', $like);
-                });
-            })
-            ->when(($v = Arr::get($f, 'target')), function ($qq) use ($v) {
-                $like = "%{$v}%";
-                $qq->where(function ($w) use ($like) {
-                    $w->where('target_db', 'like', $like)
-                    ->orWhere('target_table', 'like', $like)
-                    ->orWhere('target_ch_conn_id', 'like', $like);
-                });
-            })
-            ->when(($v = Arr::get($f, 'schedule_type')), fn($qq) => $qq->where('schedule_type', $v))
-            ->when(($v = Arr::get($f, 'schedule_text')), function ($qq) use ($v) {
-                $like = "%{$v}%";
-                $qq->where(function ($w) use ($like) {
-                    $w->where('interval_minutes', 'like', $like)
-                    ->orWhere('cron_expr', 'like', $like);
-                });
-            })
-            ->when(($v = Arr::get($f, 'last_status')), fn($qq) => $qq->where('last_status', 'like', "%{$v}%"))
-            ->when(($v = Arr::get($f, 'next_run_from')), fn($qq) => $qq->whereDate('next_run_at', '>=', $v))
-            ->when(($v = Arr::get($f, 'next_run_to')), fn($qq) => $qq->whereDate('next_run_at', '<=', $v))
+        $qb = DwhIngestionRegistry::query();
 
-            ->orderByDesc('id')
-            ->paginate(15);
+        /* ========== Global search (top search box) ========== */
+        if ($q !== '') {
+            $qb->where(function ($w) use ($q, $ciLike, $ciOrLike) {
+                $ciLike($w, 'source_db',            $q);
+                $ciOrLike($w, 'source_table',         $q);
+                $ciOrLike($w, 'source_mysql_conn_id', $q);
+                $ciOrLike($w, 'target_db',            $q);
+                $ciOrLike($w, 'target_table',         $q);
+                $ciOrLike($w, 'target_ch_conn_id',    $q);
+            });
+        }
+
+        /* ========== Per-column filters ========== */
+
+        // id (only when non-empty; avoid '' -> 0)
+        if ($hasNonEmpty('id')) {
+            $qb->where('id', (int) $f['id']);
+        }
+
+        // enabled (allow '0'/'1', skip only empty string)
+        if ($hasNonEmpty('enabled')) {
+            $qb->where('enabled', (int) $f['enabled']);
+        }
+
+        // SOURCE group: source_db / source_table / source_mysql_conn_id (contains)
+        if ($hasNonEmpty('source')) {
+            $v = $f['source'];
+            $qb->where(function ($w) use ($v, $ciLike, $ciOrLike) {
+                $ciLike($w, 'source_db',            $v);
+                $ciOrLike($w, 'source_table',         $v);
+                $ciOrLike($w, 'source_mysql_conn_id', $v);
+            });
+        }
+
+        // TARGET group: target_db / target_table / target_ch_conn_id (contains)
+        if ($hasNonEmpty('target')) {
+            $v = $f['target'];
+            $qb->where(function ($w) use ($v, $ciLike, $ciOrLike) {
+                $ciLike($w, 'target_db',         $v);
+                $ciOrLike($w, 'target_table',      $v);
+                $ciOrLike($w, 'target_ch_conn_id', $v);
+            });
+        }
+
+        // Schedule: type / interval_minutes / cron_expr
+        if ($hasNonEmpty('schedule_type')) {
+            $qb->where('schedule_type', $f['schedule_type']); // 'interval' | 'cron'
+        }
+        if ($hasNonEmpty('interval_minutes')) {
+            $qb->where('interval_minutes', (int) $f['interval_minutes']);
+        }
+        if ($hasNonEmpty('cron_expr')) {
+            $ciLike($qb, 'cron_expr', $f['cron_expr']);
+        }
+
+        // Back-compat: if you still send 'schedule_text', search both fields
+        if (!$hasNonEmpty('interval_minutes') && !$hasNonEmpty('cron_expr') && $hasNonEmpty('schedule_text')) {
+            $v = trim($f['schedule_text']);
+            $qb->where(function ($w) use ($v, $ciLike) {
+                // If numeric-ish, match interval exactly too
+                if (ctype_digit($v)) {
+                    $w->orWhere('interval_minutes', (int) $v);
+                }
+                $ciLike($w, 'cron_expr', $v);
+            });
+        }
+
+        // last_status (contains)
+        if ($hasNonEmpty('last_status')) {
+            $ciLike($qb, 'last_status', $f['last_status']);
+        }
+
+        // next_run_at range
+        if ($hasNonEmpty('next_run_from')) {
+            $qb->whereDate('next_run_at', '>=', $f['next_run_from']);
+        }
+        if ($hasNonEmpty('next_run_to')) {
+            $qb->whereDate('next_run_at', '<=', $f['next_run_to']);
+        }
+
+        /* ========== Optional: debug SQL & bindings ========== */
+        if ($request->query('debug') === '1') {
+            $clone = clone $qb;
+            dd($clone->toSql(), $clone->getBindings(), $f);
+        }
+
+        /* ========== Return all rows if everything is empty ========== */
+        $allEmpty = ($q === '') && collect($f)->every(fn($v) => $v === '' || $v === null);
+        if ($allEmpty) {
+            $rows = DwhIngestionRegistry::query()
+                ->orderByDesc('id')
+                ->paginate(15)
+                ->withQueryString();
+
+            return view('admin.manage_datalake', [
+                'rows' => $rows,
+                'q'    => $q,
+            ]);
+        }
+
+        $rows = $qb->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
 
         return view('admin.manage_datalake', [
             'rows' => $rows,
@@ -434,21 +504,138 @@ class AdminController extends Controller
 
     public function index_datawarehouse(Request $request)
     {
-        $q = Ck2CkIngestion::query();
+        // Read GET params explicitly
+        $q = trim((string) $request->query('q', ''));
+        $f = (array) $request->query('filter', []);
 
-        if ($search = $request->get('q')) {
-            $q->where(function($w) use ($search) {
-                $w->where('target_table', 'ilike', "%{$search}%")
-                  ->orWhere('target_db', 'ilike', "%{$search}%")
-                  ->orWhere('src_database', 'ilike', "%{$search}%")
-                  ->orWhere('source_ch_conn_id', 'ilike', "%{$search}%")
-                  ->orWhere('target_ch_conn_id', 'ilike', "%{$search}%");
+        // Helpers
+        $hasNonEmpty = function (string $k) use ($f): bool {
+            return array_key_exists($k, $f) && trim((string) $f[$k]) !== '';
+        };
+        $ciLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            // Portable case-insensitive contains (works on Postgres/MySQL)
+            $qb->whereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+            // If you're 100% on Postgres, you could use:
+            // $qb->where($column, 'ilike', '%' . trim($value) . '%');
+        };
+        $ciOrLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            // Portable case-insensitive contains (works on Postgres/MySQL)
+            $qb->orWhereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+            // If you're 100% on Postgres, you could use:
+            // $qb->where($column, 'ilike', '%' . trim($value) . '%');
+        };
+
+        $qb = Ck2CkIngestion::query();
+
+        /* ========== Global search (top search box: "db/table/conn id") ========== */
+        if ($q !== '') {
+            $qb->where(function ($w) use ($q, $ciLike, $ciOrLike) {
+                $ciLike($w, 'src_database',         $q);
+                $ciOrLike($w, 'source_ch_conn_id',    $q);
+                $ciOrLike($w, 'target_db',            $q);
+                $ciOrLike($w, 'target_table',         $q);
+                $ciOrLike($w, 'target_ch_conn_id',    $q);
             });
         }
 
-        $rows = $q->orderBy('id', 'desc')->paginate(20)->withQueryString();
+        /* ========== Per-column filters (match Blade 1:1) ========== */
 
-        return view('admin.manage_datawarehouse', compact('rows'));
+        // ID (only when non-empty; avoid '' -> 0)
+        if ($hasNonEmpty('id')) {
+            $qb->where('id', (int) $f['id']);
+        }
+
+        // Enabled (allow '0'/'1', skip only empty string)
+        if ($hasNonEmpty('enabled')) {
+            $qb->where('enabled', (int) $f['enabled']);
+        }
+
+        // Source (src db / conn)
+        if ($hasNonEmpty('source')) {
+            $v = $f['source'];
+            $qb->where(function ($w) use ($v, $ciLike, $ciOrLike) {
+                $ciLike($w, 'src_database',      $v);
+                $ciOrLike($w, 'source_ch_conn_id', $v);
+            });
+        }
+
+        // Target (tgt db/table/conn)
+        if ($hasNonEmpty('target')) {
+            $v = $f['target'];
+            $qb->where(function ($w) use ($v, $ciLike, $ciOrLike) {
+                $ciLike($w, 'target_db',         $v);
+                $ciOrLike($w, 'target_table',      $v);
+                $ciOrLike($w, 'target_ch_conn_id', $v);
+            });
+        }
+
+        // PK / Version
+        if ($hasNonEmpty('pk_cols')) {
+            $ciLike($qb, 'pk_cols', $f['pk_cols']);
+        }
+        if ($hasNonEmpty('version_col')) {
+            $ciLike($qb, 'version_col', $f['version_col']);
+        }
+
+        // Schedule (type + schedule_text: “min/cron expr”)
+        if ($hasNonEmpty('schedule_type')) {
+            $qb->where('schedule_type', $f['schedule_type']); // 'interval' | 'cron'
+        }
+        if ($hasNonEmpty('schedule_text')) {
+            $v = trim($f['schedule_text']);
+            $qb->where(function ($w) use ($v, $ciLike) {
+                // If numeric-like, treat as interval_minutes exact
+                if (ctype_digit($v)) {
+                    $w->orWhere('interval_minutes', (int) $v);
+                }
+                // Also search cron_expr textually
+                $ciLike($w, 'cron_expr', $v);
+            });
+        }
+
+        // Parallel (slices / rows per page)
+        if ($hasNonEmpty('parallel_slices')) {
+            $qb->where('parallel_slices', (int) $f['parallel_slices']);
+        }
+        if ($hasNonEmpty('page_rows')) {
+            $qb->where('page_rows', (int) $f['page_rows']);
+        }
+
+        // Last Status
+        if ($hasNonEmpty('last_status')) {
+            $ciLike($qb, 'last_status', $f['last_status']);
+        }
+
+        /* ========== Optional: debug SQL & bindings ========== */
+        if ($request->query('debug') === '1') {
+            $clone = clone $qb;
+            dd($clone->toSql(), $clone->getBindings(), $f);
+        }
+
+        /* ========== Return all rows if everything is empty ========== */
+        $allEmpty = ($q === '') && collect($f)->every(fn($v) => $v === '' || $v === null);
+        if ($allEmpty) {
+            $rows = Ck2CkIngestion::query()
+                ->orderByDesc('id')
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('admin.manage_datawarehouse', [
+                'rows' => $rows,
+                'q'    => $q,
+            ]);
+        }
+
+        $rows = $qb->orderByDesc('id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view('admin.manage_datawarehouse', [
+            'rows' => $rows,
+            'q'    => $q,
+        ]);
     }
 
     public function create_datawarehouse()
@@ -593,53 +780,119 @@ class AdminController extends Controller
      * GET /admin/manage_datamart
      * List with search + filters, returns view: admin.manage_datamart
      */
+    
     public function index_datamart(Request $request)
     {
+        // Read GET params explicitly
         $q = trim((string) $request->query('q', ''));
-        $f = (array) $request->input('filter', []);
+        $f = (array) $request->query('filter', []);
 
-        $rows = Ck2PgIngestion::query()
-            // global search
-            ->when($q !== '', function ($qb) use ($q) {
-                $like = "%{$q}%";
-                $qb->where(function ($w) use ($like) {
-                    $w->where('source_db', 'ilike', $like)
-                    ->orWhere('source_table', 'ilike', $like)
-                    ->orWhere('source_ch_conn_id', 'ilike', $like)
-                    ->orWhere('target_schema', 'ilike', $like)
-                    ->orWhere('target_table', 'ilike', $like)
-                    ->orWhere('target_pg_conn_id', 'ilike', $like);
-                });
-            })
-            // per-column filters (matching the Blade filter row)
-            ->when(($v = $f['id'] ?? null), fn($qb) => $qb->where('id', (int) $v))
-            ->when(array_key_exists('enabled', $f) && $f['enabled'] !== '',
-                fn($qb) => $qb->where('enabled', (int) $f['enabled'])
-            )
-            ->when(($v = $f['source_db'] ?? null),        fn($qb) => $qb->where('source_db', 'ilike', "%{$v}%"))
-            ->when(($v = $f['source_table'] ?? null),     fn($qb) => $qb->where('source_table', 'ilike', "%{$v}%"))
-            ->when(($v = $f['source_ch_conn_id'] ?? null),fn($qb) => $qb->where('source_ch_conn_id', 'ilike', "%{$v}%"))
-            ->when(($v = $f['target_schema'] ?? null),    fn($qb) => $qb->where('target_schema', 'ilike', "%{$v}%"))
-            ->when(($v = $f['target_table'] ?? null),     fn($qb) => $qb->where('target_table', 'ilike', "%{$v}%"))
-            ->when(($v = $f['target_pg_conn_id'] ?? null),fn($qb) => $qb->where('target_pg_conn_id', 'ilike', "%{$v}%"))
-            ->when(($v = $f['cursor_col'] ?? null),       fn($qb) => $qb->where('cursor_col', 'ilike', "%{$v}%"))
-            ->when(($v = $f['schedule_type'] ?? null),    fn($qb) => $qb->where('schedule_type', $v))
-            ->when(($v = $f['schedule_text'] ?? null), function ($qb) use ($v) {
-                $like = "%{$v}%";
-                $qb->where(function ($w) use ($like) {
-                    $w->where('interval_minutes', '::text ilike', $like) // PG casts handled below if needed
-                    ->orWhere('cron_expr', 'ilike', $like);
-                });
-            })
-            ->when(($v = $f['chunk_rows'] ?? null),       fn($qb) => $qb->where('chunk_rows', (int) $v))
-            ->when(($v = $f['max_parallel'] ?? null),     fn($qb) => $qb->where('max_parallel', (int) $v))
-            ->when(($v = $f['last_status'] ?? null),      fn($qb) => $qb->where('last_status', 'ilike', "%{$v}%"))
+        // Helpers
+        $hasNonEmpty = function (string $k) use ($f): bool {
+            return array_key_exists($k, $f) && trim((string) $f[$k]) !== '';
+        };
+        $ciLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            $qb->whereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+        };
 
-            ->orderByDesc('id')
+        $qb = \App\Models\Ck2PgIngestion::query();
+
+        /* ========== Global search (matches your top search box) ========== */
+        if ($q !== '') {
+            $qb->where(function ($w) use ($q, $ciLike) {
+                $ciLike($w, 'source_ch_conn_id', $q);
+                $ciLike($w, 'target_schema',     $q);
+                $ciLike($w, 'target_table',      $q);
+                $ciLike($w, 'target_pg_conn_id', $q);
+            });
+        }
+
+        /* ========== Per-column filters (exactly as in Blade) ========== */
+        // id (only when non-empty; avoid '' -> 0)
+        if ($hasNonEmpty('id')) {
+            $qb->where('id', (int) $f['id']);
+        }
+
+        // enabled (allow '0'/'1', skip only empty string)
+        if ($hasNonEmpty('source_ch_conn_id')) {
+            $qb->where('enabled', (int) $f['enabled']);
+        }
+
+        // source (CH / SQL)
+        if ($hasNonEmpty('source_ch_conn_id')) {
+            $ciLike($qb, 'source_ch_conn_id', $f['source_ch_conn_id']);
+        }
+        if ($hasNonEmpty('source_sql_like')) {
+            // your column holding the SQL text is assumed 'source_sql'
+            $ciLike($qb, 'source_sql', $f['source_sql_like']);
+        }
+
+        // target
+        if ($hasNonEmpty('target_schema')) {
+            $ciLike($qb, 'target_schema', $f['target_schema']);
+        }
+        if ($hasNonEmpty('target_table')) {
+            $ciLike($qb, 'target_table', $f['target_table']);
+        }
+        if ($hasNonEmpty('target_pg_conn_id')) {
+            $ciLike($qb, 'target_pg_conn_id', $f['target_pg_conn_id']);
+        }
+
+        // PK / Cursor
+        if ($hasNonEmpty('pk_value')) {
+            $ciLike($qb, 'pk_value', $f['pk_value']);
+        }
+        if ($hasNonEmpty('cursor_col')) {
+            $ciLike($qb, 'cursor_col', $f['cursor_col']);
+        }
+
+        // Schedule
+        if ($hasNonEmpty('schedule_type')) {
+            $qb->where('schedule_type', $f['schedule_type']); // 'interval' | 'cron'
+        }
+        if ($hasNonEmpty('interval_minutes')) {
+            $qb->where('interval_minutes', (int) $f['interval_minutes']);
+        }
+        if ($hasNonEmpty('cron_expr')) {
+            $ciLike($qb, 'cron_expr', $f['cron_expr']);
+        }
+
+        // Batch / Workers
+        if ($hasNonEmpty('chunk_rows')) {
+            $qb->where('chunk_rows', (int) $f['chunk_rows']);
+        }
+        if ($hasNonEmpty('max_parallel')) {
+            $qb->where('max_parallel', (int) $f['max_parallel']);
+        }
+
+        // Last Status
+        if ($hasNonEmpty('last_status')) {
+            $ciLike($qb, 'last_status', $f['last_status']);
+        }
+
+        /* ========== Return all rows if everything is empty ========== */
+        $allEmpty = ($q === '') && collect($f)->every(fn($v) => $v === '' || $v === null);
+        if ($allEmpty) {
+            $rows = \App\Models\Ck2PgIngestion::query()
+                ->orderByDesc('id')
+                ->paginate(20)
+                ->withQueryString();
+
+            return view('admin.manage_datamart', compact('rows', 'q'));
+        }
+
+        /* ========== Optional: debug SQL & bindings ========== */
+        if ($request->query('debug') === '1') {
+            $clone = clone $qb;
+            dd($clone->toSql(), $clone->getBindings(), $f);
+        }
+
+        $rows = $qb->orderByDesc('id')
             ->paginate(20)
             ->withQueryString();
 
-        return view('admin.manage_datamart', compact('rows','q'));
+        return view('admin.manage_datamart', compact('rows', 'q'));
     }
 
     /**
