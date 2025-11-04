@@ -1277,6 +1277,15 @@ class AdminController extends Controller
     {
         $row = \App\Models\SapCdcRegistry::findOrFail($id);
         $row->trigger_run_now = true;
+        if ($row->prod_enabled) {
+            $row->prod_last_status = 'queued';
+        }
+        if ($row->sim_enabled) {
+            $row->sim_last_status = 'queued';
+        }
+        if ($row->qas_enabled) {
+            $row->qas_last_status = 'queued';
+        }
         $row->save();
 
         return back()->with('success', "Triggered SAP CDC job #{$row->id} to run now.");
@@ -1354,7 +1363,15 @@ class AdminController extends Controller
     {
         $row = \App\Models\SapCdcRegistry::findOrFail($id);
         $row->trigger_force_initial = true;
-        $row->prod_initial_done = false;
+        if ($row->prod_enabled) {
+            $row->prod_initial_done = false;
+        }
+        if ($row->sim_enabled) {
+            $row->sim_initial_done = false;
+        }
+        if ($row->qas_enabled) {
+            $row->qas_initial_done = false;
+        }
         $row->state_json = [];
         $row->save();
 
