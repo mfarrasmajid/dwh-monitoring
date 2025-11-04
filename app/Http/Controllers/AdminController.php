@@ -1108,4 +1108,257 @@ class AdminController extends Controller
         }
     }
 
+    public function index_sap_cdc(Request $request)
+    {
+        $q = trim((string) $request->query('q', ''));
+        $f = (array) $request->query('filter', []);
+
+        $hasNonEmpty = function (string $k) use ($f): bool {
+            return array_key_exists($k, $f) && trim((string) $f[$k]) !== '';
+        };
+        $ciLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            $qb->whereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+        };
+        $ciOrLike = function ($qb, string $column, ?string $value): void {
+            if ($value === null || trim($value) === '') return;
+            $qb->orWhereRaw("LOWER({$column}) LIKE ?", ['%' . Str::lower(trim($value)) . '%']);
+        };
+
+        $qb = \App\Models\SapCdcRegistry::query();
+
+        /* ========== Global search ========== */
+        if ($q !== '') {
+            $qb->where(function ($w) use ($q, $ciLike, $ciOrLike) {
+                $ciLike($w, 'job_code', $q);
+                $ciOrLike($w, 'service_name', $q);
+                $ciOrLike($w, 'entity_name', $q);
+                $ciOrLike($w, 'sim_table', $q);
+                $ciOrLike($w, 'qas_table', $q);
+                $ciOrLike($w, 'prod_table', $q);
+            });
+        }
+
+        /* ========== Per-column filters ========== */
+        if ($hasNonEmpty('id')) {
+            $qb->where('id', (int) $f['id']);
+        }
+
+        if ($hasNonEmpty('is_enabled')) {
+            $qb->where('is_enabled', (int) $f['is_enabled']);
+        }
+
+        if ($hasNonEmpty('job_code')) {
+            $ciLike($qb, 'job_code', $f['job_code']);
+        }
+
+        if ($hasNonEmpty('service_name')) {
+            $ciLike($qb, 'service_name', $f['service_name']);
+        }
+
+        if ($hasNonEmpty('entity_name')) {
+            $ciLike($qb, 'entity_name', $f['entity_name']);
+        }
+
+        if ($hasNonEmpty('method')) {
+            $qb->where('method', $f['method']);
+        }
+
+        if ($hasNonEmpty('schedule_type')) {
+            $qb->where('schedule_type', $f['schedule_type']);
+        }
+
+        if ($hasNonEmpty('environment')) {
+            $env = $f['environment'];
+            $qb->where(function($w) use ($env) {
+                if ($env === 'sim') {
+                    $w->where('sim_enabled', true);
+                } elseif ($env === 'qas') {
+                    $w->where('qas_enabled', true);
+                } elseif ($env === 'prod') {
+                    $w->where('prod_enabled', true);
+                }
+            });
+        }
+
+        $allEmpty = ($q === '') && collect($f)->every(fn($v) => $v === '' || $v === null);
+        if ($allEmpty) {
+            $rows = \App\Models\SapCdcRegistry::query()
+                ->orderByDesc('id')
+                ->paginate(15)
+                ->withQueryString();
+
+            return view('admin.manage_sap_cdc', [
+                'rows' => $rows,
+                'q'    => $q,
+            ]);
+        }
+
+        $rows = $qb->orderByDesc('id')
+            ->paginate(15)
+            ->withQueryString();
+
+        return view('admin.manage_sap_cdc', [
+            'rows' => $rows,
+            'q'    => $q,
+        ]);
+    }
+
+    public function create_sap_cdc()
+    {
+        return view('admin.detail_sap_cdc', [
+            'data' => []
+        ]);
+    }
+
+    public function store_sap_cdc(Request $request)
+    {
+        $validated = $this->validatePayloadSapCdc($request);
+
+        $validated['is_enabled'] = $request->boolean('is_enabled');
+        $validated['sim_enabled'] = $request->boolean('sim_enabled');
+        $validated['qas_enabled'] = $request->boolean('qas_enabled');
+        $validated['prod_enabled'] = $request->boolean('prod_enabled');
+        $this->normalizeScheduleSapCdc($validated);
+
+        $row = \App\Models\SapCdcRegistry::create($validated);
+
+        return redirect()
+            ->to('/admin/manage_sap_cdc/'.$row->id.'/edit')
+            ->with('success', 'SAP CDC Registry created.');
+    }
+
+    public function edit_sap_cdc($id)
+    {
+        $row = \App\Models\SapCdcRegistry::findOrFail($id);
+        return view('admin.detail_sap_cdc', [
+            'data' => ['id' => $row->id, 'row' => $row],
+        ]);
+    }
+
+    public function update_sap_cdc(Request $request, $id)
+    {
+        $row = \App\Models\SapCdcRegistry::findOrFail($id);
+
+        $validated = $this->validatePayloadSapCdc($request);
+        $validated['is_enabled'] = $request->boolean('is_enabled');
+        $validated['sim_enabled'] = $request->boolean('sim_enabled');
+        $validated['qas_enabled'] = $request->boolean('qas_enabled');
+        $validated['prod_enabled'] = $request->boolean('prod_enabled');
+        $this->normalizeScheduleSapCdc($validated);
+
+        $row->fill($validated)->save();
+
+        return redirect()
+            ->to('/admin/manage_sap_cdc/'.$row->id.'/edit')
+            ->with('success', 'SAP CDC Registry updated.');
+    }
+
+    public function destroy_sap_cdc($id)
+    {
+        $row = \App\Models\SapCdcRegistry::findOrFail($id);
+        $row->delete();
+
+        return redirect()
+            ->to('/admin/manage_sap_cdc')
+            ->with('success', 'SAP CDC Registry deleted.');
+    }
+
+    public function toggle_sap_cdc($id)
+    {
+        $row = \App\Models\SapCdcRegistry::findOrFail($id);
+        $row->is_enabled = ! $row->is_enabled;
+        $row->save();
+
+        return back()->with('success', 'Status toggled to '.($row->is_enabled ? 'Enabled' : 'Disabled').'.');
+    }
+
+    public function trigger_sap_cdc($id)
+    {
+        $row = \App\Models\SapCdcRegistry::findOrFail($id);
+        $row->trigger_run_now = true;
+        $row->save();
+
+        return back()->with('success', "Triggered SAP CDC job #{$row->id} to run now.");
+    }
+
+    // --------- helpers ---------
+
+    private function validatePayloadSapCdc(Request $request): array
+    {
+        $rules = [
+            'is_enabled'        => ['nullable'],
+            'job_code'          => ['required','string','max:255', Rule::unique('sap_cdc_registry')->ignore($request->route('id'))],
+            'service_name'      => ['required','string','max:255'],
+            'entity_name'       => ['required','string','max:255'],
+            'method'            => ['required', Rule::in(['continuous_cdc','weekly_refresh'])],
+            'schedule_type'     => ['required', Rule::in(['interval','cron'])],
+            'interval_minutes'  => ['nullable','integer','min:1'],
+            'cron_expr'         => ['nullable','string','max:255'],
+            'initial_path'      => ['required','string'],
+            'delta_path'        => ['nullable','string'],
+            'sim_enabled'       => ['nullable'],
+            'sim_db'            => ['nullable','string','max:255'],
+            'sim_table'         => ['required','string','max:255'],
+            'qas_enabled'       => ['nullable'],
+            'qas_db'            => ['nullable','string','max:255'],
+            'qas_table'         => ['required','string','max:255'],
+            'prod_enabled'      => ['nullable'],
+            'prod_db'           => ['nullable','string','max:255'],
+            'prod_table'        => ['required','string','max:255'],
+            'sim_client'        => ['nullable','string','max:10'],
+            'qas_client'        => ['nullable','string','max:10'],
+            'prod_client'       => ['nullable','string','max:10'],
+            'ck_conn_id'        => ['nullable','string','max:255'],
+            'log_conn_id'       => ['nullable','string','max:255'],
+            'maxpagesize'       => ['nullable','integer','min:1000'],
+        ];
+
+        $validated = $request->validate($rules);
+
+        // Conditional required
+        $st = $validated['schedule_type'] ?? 'interval';
+        if ($st === 'interval' && empty($validated['interval_minutes'])) {
+            return back()->withErrors(['interval_minutes' => 'Interval minutes is required for interval schedule.'])
+                        ->withInput()->throwResponse();
+        }
+        if ($st === 'cron' && empty($validated['cron_expr'])) {
+            return back()->withErrors(['cron_expr' => 'Cron expression is required for cron schedule.'])
+                        ->withInput()->throwResponse();
+        }
+
+        return $validated;
+    }
+
+    private function normalizeScheduleSapCdc(array &$data): void
+    {
+        $data['sim_db']      = $data['sim_db'] ?? 'sap_sim';
+        $data['qas_db']      = $data['qas_db'] ?? 'sap_qas';
+        $data['prod_db']     = $data['prod_db'] ?? 'sap_prod';
+        $data['sim_client']  = $data['sim_client'] ?? '300';
+        $data['qas_client']  = $data['qas_client'] ?? '300';
+        $data['prod_client'] = $data['prod_client'] ?? '300';
+        $data['ck_conn_id']  = $data['ck_conn_id'] ?? 'clickhouse_default';
+        $data['log_conn_id'] = $data['log_conn_id'] ?? 'airflow_logs_mitratel';
+        $data['maxpagesize'] = (int)($data['maxpagesize'] ?? 100000);
+
+        if (($data['schedule_type'] ?? 'interval') === 'interval') {
+            $data['cron_expr'] = null;
+            $data['interval_minutes'] = (int)($data['interval_minutes'] ?? 5);
+        } else {
+            $data['interval_minutes'] = null;
+        }
+    }
+
+    public function force_initial_sap_cdc($id)
+    {
+        $row = \App\Models\SapCdcRegistry::findOrFail($id);
+        $row->trigger_force_initial = true;
+        $row->prod_initial_done = false;
+        $row->state_json = [];
+        $row->save();
+
+        return back()->with('success', "Force Initial Load triggered for SAP CDC job #{$row->id}. All enabled environments will perform a full initial load on next run.");
+    }
+
 }

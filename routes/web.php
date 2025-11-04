@@ -69,6 +69,15 @@ Route::prefix('admin')->group(function () {
     Route::delete('/manage_datamart/{id}',     'AdminController@destroy_datamart')->name('destroy_datamart');
     Route::patch('/manage_datamart/{id}/toggle','AdminController@toggle_datamart')->name('toggle_datamart');
     Route::patch('/manage_datamart/{id}/queue', 'AdminController@queue_datamart')->name('queue_datamart');
+    Route::get('/manage_sap_cdc',             'AdminController@index_sap_cdc')->name('manage_sap_cdc');
+    Route::get('/manage_sap_cdc/create',      'AdminController@create_sap_cdc')->name('create_sap_cdc');
+    Route::post('/manage_sap_cdc',            'AdminController@store_sap_cdc')->name('store_sap_cdc');
+    Route::get('/manage_sap_cdc/{id}/edit',   'AdminController@edit_sap_cdc')->name('edit_sap_cdc');
+    Route::put('/manage_sap_cdc/{id}',        'AdminController@update_sap_cdc')->name('update_sap_cdc');
+    Route::delete('/manage_sap_cdc/{id}',     'AdminController@destroy_sap_cdc')->name('destroy_sap_cdc');
+    Route::patch('/manage_sap_cdc/{id}/toggle', 'AdminController@toggle_sap_cdc')->name('toggle_sap_cdc');
+    Route::patch('/manage_sap_cdc/{id}/trigger', 'AdminController@trigger_sap_cdc')->name('trigger_sap_cdc');
+    Route::patch('/manage_sap_cdc/{id}/force_initial', 'AdminController@force_initial_sap_cdc')->name('force_initial_sap_cdc');
 });
 Route::prefix('api')->group(function() {
     // Route::prefix('helpdesk')->group(function () {
