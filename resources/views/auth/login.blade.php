@@ -56,9 +56,18 @@
                             <!--end::Email-->
                         </div>
                         <!--end::Input group=-->
+                        <!--end::Input group=-->
                         <div class="fv-row mb-3">
-                            <!--begin::Password-->
-                            <input type="password" placeholder="Password" name="password" autocomplete="off" class="form-control bg-transparent" />
+                            <div class="input-group mb-5">
+                                <input id="password" type="password" class="form-control bg-transparent" name="password" placeholder="Password" autocomplete="off"/>
+                                <button type="button" class="input-group-text" onclick="show_hide()">
+                                    <i class="ki-duotone ki-eye show-hide">
+                                        <span class="path1"></span>
+                                        <span class="path2"></span>
+                                        <span class="path3"></span>
+                                    </i>
+                                </button>
+                            </div>
                             <!--end::Password-->
                         </div>
                         <!--end::Input group=-->
@@ -163,5 +172,18 @@
     KTUtil.onDOMContentLoaded(function () {
     KTSigninGeneral.init();
     });
+    function show_hide() {
+        var x = document.getElementById("password");
+        var y = $(".show-hide");
+        if (x.type === "password") {
+            x.type = "text";
+            y.removeClass("ki-eye");
+            y.addClass("ki-eye-slash");
+        } else {
+            x.type = "password";
+            y.addClass("ki-eye");
+            y.removeClass("ki-eye-slash");
+        }
+    }
 </script>
 @stop
